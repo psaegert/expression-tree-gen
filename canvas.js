@@ -18,6 +18,7 @@
     var container = document.getElementById('canvas-container')
     var input = document.getElementById('expression-input')
     var warning = document.getElementById('warning')
+    var errorMessage = document.getElementById('error-message')
     var themeToggle = document.getElementById('theme-toggle')
     var exportPopover = document.getElementById('export-popover')
     var pngScaleRow = document.getElementById('png-scale-row')
@@ -41,6 +42,26 @@
         warning.hidden = !isVisible
     }
 
+    function setErrorMessage(message) {
+        if (message) {
+            errorMessage.textContent = message
+            errorMessage.hidden = false
+        } else {
+            errorMessage.textContent = ''
+            errorMessage.hidden = true
+        }
+    }
+
+    function showError(message) {
+        setWarningVisible(true)
+        setErrorMessage(message)
+    }
+
+    function clearError() {
+        setWarningVisible(false)
+        setErrorMessage('')
+    }
+
     function renderRoot(root) {
         clearCanvas()
         if (!root) {
@@ -53,30 +74,26 @@
     function renderExpression() {
         var expression = input.value
         if (typeof expression === 'undefined' || expression === null) {
-            setWarningVisible(false)
+            clearError()
             return
         }
 
         expression = expression.replace(/\s+/g, '')
         if (expression.length === 0) {
             currentRoot = null
-            setWarningVisible(false)
+            clearError()
             clearCanvas()
             return
         }
 
         try {
             var postfix = infixToPostfix(expression)
-            if (postfix === null) {
-                setWarningVisible(true)
-                return
-            }
             var root = constructTree(postfix)
             currentRoot = root
-            setWarningVisible(false)
+            clearError()
             renderRoot(root)
         } catch (error) {
-            setWarningVisible(true)
+            showError((error && error.message) ? error.message : 'Invalid expression')
         }
     }
 
@@ -226,7 +243,7 @@
     document.getElementById('clear-tree').addEventListener('click', function () {
         input.value = ''
         currentRoot = null
-        setWarningVisible(false)
+        clearError()
         clearCanvas()
         input.focus()
     })
