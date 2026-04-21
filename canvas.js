@@ -16,6 +16,26 @@
     var canvas = document.querySelector('canvas')
     var c = canvas.getContext('2d')
     function clearCanvas() { c.clearRect(0, 0, canvas.width, canvas.height) }
+    function exportCanvas() {
+        var bgMode = document.getElementById('export-bg-mode').value
+        var dataURL
+        if (bgMode === 'white') {
+            var exportCanvas = document.createElement('canvas')
+            var exportContext = exportCanvas.getContext('2d')
+            exportCanvas.width = canvas.width
+            exportCanvas.height = canvas.height
+            exportContext.fillStyle = '#ffffff'
+            exportContext.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
+            exportContext.drawImage(canvas, 0, 0)
+            dataURL = exportCanvas.toDataURL('image/png')
+        } else {
+            dataURL = canvas.toDataURL('image/png')
+        }
+        var link = document.createElement('a')
+        link.href = dataURL
+        link.download = 'expression-tree.png'
+        link.click()
+    }
 
     document.getElementById('generate-tree').addEventListener('click', () => {
         var expression = document.getElementById('expression-input').value
@@ -29,7 +49,7 @@
                     clearCanvas()
                     canvas.height = document.getElementById('canvas-container').offsetHeight;
                     canvas.width = document.getElementById('canvas-container').offsetWidth;
-                    drawTree(root, c)
+                    drawTree(root, c, document.getElementById('animate-toggle').checked)
                 } catch (e) {
                     displayErrorMessage()
                 }
@@ -45,6 +65,15 @@
     document.getElementById('clear-tree').addEventListener('click', () => {
         document.getElementById('expression-input').value = ''
         clearCanvas()
+    })
+
+    document.getElementById('export-tree').addEventListener('click', exportCanvas)
+
+    document.getElementById('expression-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault()
+            document.getElementById('generate-tree').click()
+        }
     })
 
     document.getElementById('expression-input').value = SAMPLE_EXPRESSIONS[Math.floor(Math.random() * SAMPLE_EXPRESSIONS.length)]

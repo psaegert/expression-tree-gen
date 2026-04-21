@@ -76,7 +76,7 @@ function Node(value, arity = 0, children) {
         return Math.max(8, Math.floor(baseSize * (maxTextWidth / textWidth)))
     }
 
-    this.drawEdge = function (context, childNode, resolve) {
+    this.drawEdge = function (context, childNode, resolve, animate) {
         const radius = this.getRadius(context)
         const childRadius = childNode.getRadius(context)
         context.strokeStyle = 'gray';
@@ -91,7 +91,15 @@ function Node(value, arity = 0, children) {
         const startY = this.y + (dy / distance) * radius
         const endX = childNode.x - (dx / distance) * childRadius
         const endY = childNode.y - (dy / distance) * childRadius
-        drawEdgeAnimated(startX, startY, endX, endY, context, resolve)
+        if (animate) {
+            drawEdgeAnimated(startX, startY, endX, endY, context, resolve)
+        } else {
+            context.beginPath()
+            context.moveTo(startX, startY)
+            context.lineTo(endX, endY)
+            context.stroke()
+            resolve()
+        }
     }
 
     this.draw = function (context) {
@@ -232,13 +240,13 @@ function setCoordinates(root) {
 }
 
 // must be async in order to await till animation is done
-async function drawTree(root, context) {
+async function drawTree(root, context, animate = true) {
     if (null != root) {
         root.draw(context)
         for (var i = 0; i < root.children.length; i++) {
             var child = root.children[i]
-            await new Promise(resolve => root.drawEdge(context, child, resolve))
-            await drawTree(child, context)
+            await new Promise(resolve => root.drawEdge(context, child, resolve, animate))
+            await drawTree(child, context, animate)
         }
     }
 }
