@@ -76,79 +76,49 @@ function Node(value, arity = 0, children) {
         return Math.max(8, Math.floor(baseSize * (maxTextWidth / textWidth)))
     }
 
-    this.drawEdge = function (context, childNode, resolve, animate) {
+    this.drawEdge = function (context, childNode) {
+        const styles = getComputedStyle(document.documentElement)
         const radius = this.getRadius(context)
         const childRadius = childNode.getRadius(context)
-        context.strokeStyle = 'gray';
+        const edgeColor = styles.getPropertyValue('--edge').trim() || '#9e9e9e'
+        context.strokeStyle = edgeColor
         const dx = childNode.x - this.x
         const dy = childNode.y - this.y
         const distance = Math.sqrt((dx * dx) + (dy * dy))
         if (distance === 0) {
-            resolve()
             return
         }
         const startX = this.x + (dx / distance) * radius
         const startY = this.y + (dy / distance) * radius
         const endX = childNode.x - (dx / distance) * childRadius
         const endY = childNode.y - (dy / distance) * childRadius
-        if (animate) {
-            drawEdgeAnimated(startX, startY, endX, endY, context, resolve)
-        } else {
-            context.beginPath()
-            context.moveTo(startX, startY)
-            context.lineTo(endX, endY)
-            context.stroke()
-            resolve()
-        }
+        context.beginPath()
+        context.moveTo(startX, startY)
+        context.lineTo(endX, endY)
+        context.stroke()
     }
 
     this.draw = function (context) {
+        const styles = getComputedStyle(document.documentElement)
         const radius = this.getRadius(context)
+        const nodeFill = styles.getPropertyValue('--node-fill').trim() || '#ffffff'
+        const nodeStroke = styles.getPropertyValue('--node-stroke').trim() || '#212121'
+        const textColor = styles.getPropertyValue('--fg').trim() || '#212121'
+
         context.beginPath()
         context.arc(this.x, this.y, radius, 0, Math.PI * 2, false)
-        context.fillStyle = 'white'
+        context.fillStyle = nodeFill
         context.fill()
-        context.strokeStyle = '#212121'
+        context.strokeStyle = nodeStroke
         context.stroke()
+
         const fontSize = this.getFontSize(context)
         context.font = fontSize + 'px Times New Roman'
         context.textAlign = 'center'
         context.textBaseline = 'middle'
-        context.fillStyle = "#212121";
-        context.fillText(this.value, this.x, this.y);
+        context.fillStyle = textColor
+        context.fillText(this.value, this.x, this.y)
     }
-}
-
-function drawEdgeAnimated(origin_x, origin_y, destine_x, destine_y, ctx, resolve) {
-    const vertices = [{ x: origin_x, y: origin_y }, { x: destine_x, y: destine_y }]
-    const N = 35;
-    var waypoints = [];
-    for (var i = 1; i < vertices.length; i++) {
-        var pt0 = vertices[i - 1];
-        var pt1 = vertices[i];
-        var dx = pt1.x - pt0.x;
-        var dy = pt1.y - pt0.y;
-        for (var j = 0; j <= N; j++) {
-            var x = pt0.x + dx * j / N;
-            var y = pt0.y + dy * j / N;
-            waypoints.push({ x: x, y: y });
-        }
-    }
-    var t = 1
-    function resolveCallback(callback) {
-        function animate() {
-            if (t < waypoints.length - 1) { requestAnimationFrame(animate) }
-            else { callback() }
-            ctx.beginPath();
-            ctx.moveTo(waypoints[t - 1].x, waypoints[t - 1].y);
-            ctx.lineTo(waypoints[t].x, waypoints[t].y);
-            ctx.stroke();
-            t++;
-        }
-        return animate
-    }
-
-    requestAnimationFrame(resolveCallback(resolve))
 }
 
 function constructTree(postfix) {
@@ -239,14 +209,13 @@ function setCoordinates(root) {
     assignCoordinates(root, 0, canvas_mid_point - (totalWidth / 2), canvas_mid_point + (totalWidth / 2))
 }
 
-// must be async in order to await till animation is done
-async function drawTree(root, context, animate = true) {
+function drawTree(root, context) {
     if (null != root) {
         root.draw(context)
         for (var i = 0; i < root.children.length; i++) {
             var child = root.children[i]
-            await new Promise(resolve => root.drawEdge(context, child, resolve, animate))
-            await drawTree(child, context, animate)
+            root.drawEdge(context, child)
+            drawTree(child, context)
         }
     }
 }
