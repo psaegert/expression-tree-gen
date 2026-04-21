@@ -234,6 +234,14 @@ function renderLatexToHtml(latex) {
     }
 }
 
+// Extra pixels added to each side of the measured LaTeX bounding box when
+// building the rasterized SVG. getBoundingClientRect() on KaTeX output does
+// not account for the italic overshoot of math letters (e.g. the curved
+// right edge of an italic `b`), which otherwise gets clipped at the SVG
+// boundary. A small padding buffer keeps the glyph fully visible.
+const LATEX_RASTER_PADDING_X = 4
+const LATEX_RASTER_PADDING_Y = 2
+
 function measureLatexHtml(html, color) {
     var measure = document.createElement('div')
     measure.setAttribute('aria-hidden', 'true')
@@ -246,8 +254,8 @@ function measureLatexHtml(html, color) {
     var rect = measure.getBoundingClientRect()
     document.body.removeChild(measure)
     return {
-        width: Math.max(1, Math.ceil(rect.width)),
-        height: Math.max(1, Math.ceil(rect.height))
+        width: Math.max(1, Math.ceil(rect.width) + LATEX_RASTER_PADDING_X * 2),
+        height: Math.max(1, Math.ceil(rect.height) + LATEX_RASTER_PADDING_Y * 2)
     }
 }
 
@@ -258,7 +266,9 @@ function buildLatexSvg(html, width, height, color, cssText) {
         '<foreignObject width="100%" height="100%">' +
         '<div xmlns="http://www.w3.org/1999/xhtml" style="color:' + color +
         ';font-size:' + LATEX_BASE_FONT_SIZE + 'px;line-height:1.2;' +
-        'display:inline-block;white-space:nowrap;">' + html + '</div>' +
+        'width:100%;height:100%;display:flex;align-items:center;justify-content:center;">' +
+        '<span style="white-space:nowrap;">' + html + '</span>' +
+        '</div>' +
         '</foreignObject></svg>'
 }
 
