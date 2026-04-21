@@ -1,8 +1,9 @@
 const TREE_BINARY_OPERATORS = ['*', '/', '-', '+']
 const TREE_UNARY_FUNCTIONS = ['sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'exp', 'abs']
 
-// Names recognized as math symbols / operators for custom tokens.
-// Keys are the raw identifier (e.g. '#pi' -> 'pi'), values are LaTeX source.
+// Names recognized as math symbols / operators for custom tokens with an
+// explicit backslash prefix. Keys are the LaTeX command name (without the
+// leading '\'), so '#\pi' -> lookup 'pi' -> '\pi'.
 const LATEX_SYMBOL_MAP = {
     // Greek (lowercase)
     'alpha': '\\alpha', 'beta': '\\beta', 'gamma': '\\gamma', 'delta': '\\delta',
@@ -52,33 +53,49 @@ function identifierToLatex(name) {
     if (typeof name !== 'string' || name.length === 0) {
         return { latex: '', handled: false }
     }
+    // Detect an optional leading backslash that marks the identifier as a
+    // LaTeX command. It is stripped while splitting on "_" / trailing digits
+    // and re-attached before looking up the base identifier.
+    var prefix = ''
+    var bare = name
+    if (bare.charAt(0) === '\\') {
+        prefix = '\\'
+        bare = bare.slice(1)
+    }
     // Explicit underscore split: everything after the first `_` becomes the subscript.
-    var underscoreIdx = name.indexOf('_')
-    if (underscoreIdx > 0 && underscoreIdx < name.length - 1) {
-        var base = name.slice(0, underscoreIdx)
-        var sub = name.slice(underscoreIdx + 1)
-        var baseLatex = baseIdentifierToLatex(base)
+    var underscoreIdx = bare.indexOf('_')
+    if (underscoreIdx > 0 && underscoreIdx < bare.length - 1) {
+        var base = bare.slice(0, underscoreIdx)
+        var sub = bare.slice(underscoreIdx + 1)
+        var baseLatex = baseIdentifierToLatex(prefix + base)
         return { latex: baseLatex + '_{' + escapeLatexText(sub) + '}', handled: true }
     }
     // Trailing digits: "x1" -> x_{1}, "theta12" -> \theta_{12}.
-    var match = name.match(/^([A-Za-z]+)(\d+)$/)
+    var match = bare.match(/^([A-Za-z]+)(\d+)$/)
     if (match) {
-        var baseLatex2 = baseIdentifierToLatex(match[1])
+        var baseLatex2 = baseIdentifierToLatex(prefix + match[1])
         return { latex: baseLatex2 + '_{' + match[2] + '}', handled: true }
     }
     return { latex: baseIdentifierToLatex(name), handled: true }
 }
 
 // Map a bare alphabetic identifier (no digits, no underscores) to LaTeX:
-//   - single letter       -> as-is (rendered italic in math mode)
-//   - known symbol name   -> symbol command (e.g. "pi" -> "\pi")
-//   - anything else       -> \mathrm{name}
+//   - single letter                    -> as-is (rendered italic in math mode)
+//   - "\name" with name in symbol map  -> mapped LaTeX command (e.g. "\pi")
+//   - "\name" not in symbol map        -> passed through as raw "\name" command
+//   - anything else                    -> \mathrm{name}
 function baseIdentifierToLatex(name) {
-    if (name.length === 1) {
+    if (name.charAt(0) === '\\') {
+        var bare = name.slice(1)
+        if (Object.prototype.hasOwnProperty.call(LATEX_SYMBOL_MAP, bare)) {
+            return LATEX_SYMBOL_MAP[bare]
+        }
+        // Pass any other "\foo" through so users can reach arbitrary LaTeX
+        // commands; KaTeX will render it or fall back gracefully.
         return name
     }
-    if (Object.prototype.hasOwnProperty.call(LATEX_SYMBOL_MAP, name)) {
-        return LATEX_SYMBOL_MAP[name]
+    if (name.length === 1) {
+        return name
     }
     return '\\mathrm{' + escapeLatexText(name) + '}'
 }

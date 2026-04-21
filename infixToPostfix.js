@@ -3,7 +3,7 @@ const BINARY_OPERATORS = ['*', '/', '-', '+']
 const UNARY_FUNCTIONS = ['sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'exp', 'abs']
 const CUSTOM_IDENTIFIER_START = /[A-Za-z_]/
 const CUSTOM_IDENTIFIER_BODY = /[A-Za-z0-9_]/
-const ALLOWED_CHARACTERS_REGEX = /^[A-Za-z0-9_#,+\-*/()\s]*$/
+const ALLOWED_CHARACTERS_REGEX = /^[A-Za-z0-9_#\\,+\-*/()\s]*$/
 
 function isCustomToken(token) {
   return token && typeof token === 'object' && token.type === 'custom' && typeof token.name === 'string'
@@ -41,10 +41,17 @@ function tokenize(expression) {
       continue
     }
     if (current === '#') {
-      if (i + 1 >= expression.length || !CUSTOM_IDENTIFIER_START.test(expression[i + 1])) {
-        throw new Error("Expected an identifier after '#'")
+      var customName = ''
+      // Optional leading backslash marks the identifier as a LaTeX command
+      // (e.g. "#\phi" -> LaTeX symbol, vs "#phi" -> plain text "phi").
+      if (i + 1 < expression.length && expression[i + 1] === '\\') {
+        customName = '\\'
+        i++
       }
-      var customName = expression[i + 1]
+      if (i + 1 >= expression.length || !CUSTOM_IDENTIFIER_START.test(expression[i + 1])) {
+        throw new Error("Expected an identifier after '#" + customName + "'")
+      }
+      customName += expression[i + 1]
       i++
       while (i + 1 < expression.length && CUSTOM_IDENTIFIER_BODY.test(expression[i + 1])) {
         customName += expression[i + 1]

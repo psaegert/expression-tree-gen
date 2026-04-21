@@ -10,7 +10,7 @@ Supported syntax includes:
 - Single-letter variables: `a`-`z`
 - Unary functions: `sin`, `cos`, `tan`, `log`, `ln`, `sqrt`, `exp`, `abs`
 - Custom operators/functions:
-  - Arity 0: `#pi`
+  - Arity 0: `#\pi` (LaTeX symbol), `#myvar` (plain upright text)
   - Arity 1-3 (inferred): `#sign(a)`, `#add(a,b)`, `#clamp(x,a,b)`
 
 Examples:
@@ -19,10 +19,10 @@ Examples:
 - `sin(a)+cos(b)`
 - `sin(cos(a))`
 - `sin(a+b)*cos(c)`
-- `#pi`
+- `#\pi`
 - `#sign(a)`
 - `#add(a,b)`
-- `sin(#add(a,b))*#pi`
+- `sin(#add(a,b))*#\pi`
 - `#clamp(x,a,b)`
 
 ## LaTeX-rendered node labels
@@ -37,18 +37,23 @@ nicely out of the box:
 - **Unary functions**: `sin`, `cos`, `tan`, `log`, `ln`, `exp` render in
   upright math style; `sqrt` shows a radical (`√`) and `abs` shows
   `|·|`.
-- **Custom token symbols**: well-known names are mapped to their LaTeX
-  command, e.g. `#pi` → π, `#theta` → θ, `#alpha` → α, `#beta` → β,
-  `#gamma` → γ, `#lambda` → λ, `#mu` → μ, `#sigma` → σ, `#phi` → φ,
-  `#omega` → ω (plus uppercase variants like `#Gamma`, `#Delta`,
-  `#Sigma`, `#Omega`, …), `#infty` / `#infinity` → ∞, `#sum` → ∑,
-  `#prod` → ∏, `#int` → ∫, `#nabla` → ∇, `#partial` → ∂,
-  `#emptyset` → ∅.
+- **Custom token symbols**: well-known LaTeX command names can be
+  reached with a leading backslash after `#`, e.g. `#\pi` → π,
+  `#\theta` → θ, `#\alpha` → α, `#\beta` → β, `#\gamma` → γ,
+  `#\lambda` → λ, `#\mu` → μ, `#\sigma` → σ, `#\phi` → φ,
+  `#\omega` → ω (plus uppercase variants like `#\Gamma`, `#\Delta`,
+  `#\Sigma`, `#\Omega`, …), `#\infty` / `#\infinity` → ∞, `#\sum` → ∑,
+  `#\prod` → ∏, `#\int` → ∫, `#\nabla` → ∇, `#\partial` → ∂,
+  `#\emptyset` → ∅. Any other `#\name` is forwarded to KaTeX as the
+  raw `\name` command. Without the backslash, `#phi` simply renders
+  as the upright text `phi`.
 - **Subscripts**: identifiers ending in digits are rendered with the
-  digits as a subscript — `x1` → *x*₁, `#theta12` → θ₁₂. An underscore
-  also introduces a subscript — `#a_foo` → *a*<sub>foo</sub>.
-- **Unknown custom names** fall back to upright `\mathrm{name}` so they
-  remain legible without looking like variable products.
+  digits as a subscript — `x1` → *x*₁, `#\theta12` → θ₁₂. An
+  underscore also introduces a subscript — `#a_foo` →
+  *a*<sub>foo</sub>.
+- **Unknown custom names** without a backslash fall back to upright
+  `\mathrm{name}` so they remain legible without looking like variable
+  products.
 
 If KaTeX fails to load or a label cannot be parsed, the node falls back
 to rendering the raw token text, so expressions will always be
