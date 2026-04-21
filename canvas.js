@@ -4,7 +4,7 @@
         '(a * b) - c + z / x',
         'sin(a)+cos(b)',
         'sin(a+b)*cos(c)',
-        'sin(#add(a,b))*#pi',
+        'sin(#add(a,b))*#\\pi',
         '#clamp(x,#min(a,b),c)',
         'x - y + (c / (a + b))',
         '(a / y) + b - (c * x)',
@@ -28,14 +28,28 @@
 
     var debounceId = null
     var currentRoot = null
+    var cssWidth = 0
+    var cssHeight = 0
 
     function resizeCanvas() {
-        canvas.height = container.offsetHeight
-        canvas.width = container.offsetWidth
+        var dpr = Math.max(1, window.devicePixelRatio || 1)
+        cssWidth = container.offsetWidth
+        cssHeight = container.offsetHeight
+        canvas.width = Math.round(cssWidth * dpr)
+        canvas.height = Math.round(cssHeight * dpr)
+        canvas.style.width = cssWidth + 'px'
+        canvas.style.height = cssHeight + 'px'
+        // All drawing uses CSS pixels; the transform scales up to the
+        // high-resolution backing store so the tree stays crisp on HiDPI
+        // / mobile displays.
+        context.setTransform(dpr, 0, 0, dpr, 0, 0)
     }
 
     function clearCanvas() {
+        context.save()
+        context.setTransform(1, 0, 0, 1, 0, 0)
         context.clearRect(0, 0, canvas.width, canvas.height)
+        context.restore()
     }
 
     function setWarningVisible(isVisible) {
@@ -122,8 +136,8 @@
             : Promise.resolve()
         warmPromise.then(function () {
             var offscreen = document.createElement('canvas')
-            offscreen.width = canvas.width * exportScale
-            offscreen.height = canvas.height * exportScale
+            offscreen.width = cssWidth * exportScale
+            offscreen.height = cssHeight * exportScale
             var offscreenContext = offscreen.getContext('2d')
             offscreenContext.scale(exportScale, exportScale)
             drawTree(currentRoot, offscreenContext)
@@ -212,7 +226,7 @@
         walk(root)
         var styleBlock = cssText ? '<defs><style type="text/css"><![CDATA[' + cssText + ']]></style></defs>' : ''
         return '<?xml version="1.0" encoding="UTF-8"?>' +
-            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="' + canvas.width + '" height="' + canvas.height + '" viewBox="0 0 ' + canvas.width + ' ' + canvas.height + '">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="' + cssWidth + '" height="' + cssHeight + '" viewBox="0 0 ' + cssWidth + ' ' + cssHeight + '">' +
             styleBlock +
             '<g stroke-width="2" fill="none">' + lines.join('') + '</g>' +
             nodes.join('') +
