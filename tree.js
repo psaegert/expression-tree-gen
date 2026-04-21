@@ -24,12 +24,25 @@ const LATEX_SYMBOL_MAP = {
 }
 
 // Escape a plain string so it is safe inside LaTeX \text{...}.
+// Done in a single pass so substitutions cannot re-escape each other
+// (e.g. the braces produced by \textbackslash{} must not be treated as
+// further `{`/`}` occurrences in the input).
 function escapeLatexText(value) {
-    return String(value)
-        .replace(/\\/g, '\\textbackslash{}')
-        .replace(/([&%$#_{}])/g, '\\$1')
-        .replace(/\^/g, '\\^{}')
-        .replace(/~/g, '\\~{}')
+    var replacements = {
+        '\\': '\\textbackslash{}',
+        '&': '\\&',
+        '%': '\\%',
+        '$': '\\$',
+        '#': '\\#',
+        '_': '\\_',
+        '{': '\\{',
+        '}': '\\}',
+        '^': '\\^{}',
+        '~': '\\~{}'
+    }
+    return String(value == null ? '' : value).replace(/[\\&%$#_{}^~]/g, function (ch) {
+        return replacements[ch]
+    })
 }
 
 // Convert an identifier like "x1", "a_2", "theta12" into LaTeX with a trailing subscript.
@@ -247,14 +260,21 @@ function getLatexImage(latex, color) {
     var html = renderLatexToHtml(latex)
     if (html === null) {
         // KaTeX unavailable / failed: leave entry unready so the caller
-        // falls back to plain text. Retry once KaTeX loads.
+        // falls back to plain text. Retry once KaTeX becomes available.
         if (typeof window !== 'undefined' && typeof katex === 'undefined') {
-            window.addEventListener('load', function () {
+            var retry = function () {
                 if (latexImageCache.get(key) === entry && !entry.ready) {
                     latexImageCache.delete(key)
                     if (latexRerenderHandler) { latexRerenderHandler() }
                 }
-            }, { once: true })
+            }
+            if (typeof document !== 'undefined' && document.readyState === 'complete') {
+                // `load` has already fired; try again on the next tick so the
+                // CDN script (if still loading) has a chance to finish.
+                setTimeout(retry, 0)
+            } else {
+                window.addEventListener('load', retry, { once: true })
+            }
         }
         return entry
     }
@@ -290,12 +310,22 @@ function warmLatexCache(root, color) {
         var entry = getLatexImage(node.latex, color)
         if (!entry.ready && entry.width > 0) {
             promises.push(new Promise(function (resolve) {
+                var resolved = false
+                var pollId = 0
+                var timeoutId = 0
+                var finish = function () {
+                    if (resolved) { return }
+                    resolved = true
+                    if (pollId) { clearTimeout(pollId) }
+                    if (timeoutId) { clearTimeout(timeoutId) }
+                    resolve()
+                }
                 var check = function () {
-                    if (entry.ready) { resolve() }
-                    else { setTimeout(check, 30) }
+                    if (entry.ready) { finish() }
+                    else { pollId = setTimeout(check, 30) }
                 }
                 // Cap the wait so a broken image never blocks export forever.
-                setTimeout(resolve, 2000)
+                timeoutId = setTimeout(finish, 2000)
                 check()
             }))
         }

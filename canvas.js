@@ -294,6 +294,7 @@
             canvas.setAttribute('role', 'img')
             canvas.setAttribute('aria-label', 'Expression tree for ' + expression)
         } else {
+            canvas.removeAttribute('role')
             canvas.removeAttribute('aria-label')
         }
     }
