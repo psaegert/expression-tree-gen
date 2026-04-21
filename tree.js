@@ -161,10 +161,7 @@ function getTokenArity(token) {
     if (isUnaryFunction(token)) {
         return 1
     }
-    if (isCustomToken(token)) {
-        return token.arity || 0
-    }
-    if (isLiteralToken(token)) {
+    if (isCustomToken(token) || isLiteralToken(token)) {
         return token.arity || 0
     }
     return 0
