@@ -3,7 +3,7 @@ const BINARY_OPERATORS = ['*', '/', '-', '+']
 const UNARY_FUNCTIONS = ['sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'exp', 'abs']
 const CUSTOM_IDENTIFIER_START = /[A-Za-z_]/
 const CUSTOM_IDENTIFIER_BODY = /[A-Za-z0-9_]/
-const ALLOWED_CHARACTERS_REGEX = /^[A-Za-z0-9_#\\,+\-*/()\s]*$/
+const NUMBER_BODY = /[0-9]/
 
 function isCustomToken(token) {
   return token && typeof token === 'object' && token.type === 'custom' && typeof token.name === 'string'
@@ -17,6 +17,15 @@ function createCustomToken(name, arity) {
   return token
 }
 
+function isLiteralToken(token) {
+  return token && typeof token === 'object' && token.type === 'literal' &&
+    (token.kind === 'text' || token.kind === 'latex') && typeof token.value === 'string'
+}
+
+function createLiteralToken(kind, value) {
+  return { type: 'literal', kind: kind, value: value }
+}
+
 function isFunctionToken(token) {
   return UNARY_FUNCTIONS.indexOf(token) !== -1 || isCustomToken(token)
 }
@@ -25,11 +34,20 @@ function isVariableToken(token) {
   return typeof token === 'string' && token.length === 1 && VARIABLES.indexOf(token) !== -1
 }
 
+function isNumberToken(token) {
+  return typeof token === 'string' && token.length > 0 && /^[0-9]+(\.[0-9]+)?$/.test(token)
+}
+
+function isLeafToken(token) {
+  return isVariableToken(token) || isNumberToken(token) || isLiteralToken(token) ||
+    (isCustomToken(token) && typeof token.arity === 'number' && token.arity === 0)
+}
+
 function tokenize(expression) {
   var tokens = []
   for (var i = 0; i < expression.length; i++) {
     var current = expression[i]
-    if (current === ' ') {
+    if (/\s/.test(current)) {
       continue
     }
     if (BINARY_OPERATORS.indexOf(current) !== -1 || current === '(' || current === ')') {
@@ -38,6 +56,40 @@ function tokenize(expression) {
     }
     if (current === ',') {
       tokens.push(current)
+      continue
+    }
+    if (current === '"' || current === '$') {
+      var quote = current
+      var kind = (quote === '$') ? 'latex' : 'text'
+      var value = ''
+      var j = i + 1
+      while (j < expression.length && expression[j] !== quote) {
+        value += expression[j]
+        j++
+      }
+      if (j >= expression.length) {
+        throw new Error("Missing closing " + quote + " for literal")
+      }
+      tokens.push(createLiteralToken(kind, value))
+      i = j
+      continue
+    }
+    if (NUMBER_BODY.test(current)) {
+      var number = current
+      while (i + 1 < expression.length && NUMBER_BODY.test(expression[i + 1])) {
+        number += expression[i + 1]
+        i++
+      }
+      if (i + 1 < expression.length && expression[i + 1] === '.' &&
+          i + 2 < expression.length && NUMBER_BODY.test(expression[i + 2])) {
+        number += '.'
+        i++
+        while (i + 1 < expression.length && NUMBER_BODY.test(expression[i + 1])) {
+          number += expression[i + 1]
+          i++
+        }
+      }
+      tokens.push(number)
       continue
     }
     if (current === '#') {
@@ -89,7 +141,7 @@ function parsePrimary(tokens, index, stopOnComma) {
   if (isStopToken(token, stopOnComma)) {
     return null
   }
-  if (isVariableToken(token)) {
+  if (isVariableToken(token) || isNumberToken(token) || isLiteralToken(token)) {
     return { nextIndex: index + 1 }
   }
   if (token === '(') {
@@ -183,6 +235,10 @@ function describeToken(token) {
   if (isCustomToken(token)) {
     return "'#" + token.name + "'"
   }
+  if (isLiteralToken(token)) {
+    var quote = token.kind === 'latex' ? '$' : '"'
+    return quote + token.value + quote
+  }
   return "'" + token + "'"
 }
 
@@ -211,10 +267,6 @@ function validateTokens(tokens) {
 }
 
 function infixToPostfix(expression) {
-  if (!ALLOWED_CHARACTERS_REGEX.test(expression)) {
-    var badMatch = expression.match(/[^A-Za-z0-9_#,+\-*/()\s]/)
-    throw new Error("Invalid character '" + (badMatch ? badMatch[0] : '?') + "' in expression")
-  }
   var tokens = tokenize(expression)
   if (tokens.length === 0) {
     throw new Error('Empty expression')
@@ -226,7 +278,7 @@ function infixToPostfix(expression) {
   var postfixList = []
   for (var i = 0; i < tokens.length; i++) {
     var token = tokens[i]
-    if (isVariableToken(token)) {
+    if (isVariableToken(token) || isNumberToken(token) || isLiteralToken(token)) {
       postfixList.push(token)
     } else if (isCustomToken(token)) {
       if (tokens[i + 1] === '(') {

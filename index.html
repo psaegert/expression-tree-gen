@@ -18,7 +18,16 @@
             <div class="input-wrap" id="input-wrap">
                 <input type="text" id="expression-input" placeholder="sin(#add(a,b))*#\pi" autocomplete="off" spellcheck="false">
                 <span class="warning" id="warning" aria-hidden="true" hidden>⚠️</span>
-                <button class="icon-btn input-icon" id="clear-tree" aria-label="Clear expression">
+                <button class="icon-btn input-icon input-icon-copy" id="copy-input" aria-label="Copy expression">
+                    <svg class="copy-default" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    <svg class="copy-done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </button>
+                <button class="icon-btn input-icon input-icon-clear" id="clear-tree" aria-label="Clear expression">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <polyline points="3 6 5 6 21 6"></polyline>
                         <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
@@ -54,7 +63,11 @@
                             <option value="4">4x</option>
                         </select>
                     </label>
-                    <button type="button" class="download-btn" id="download-export">Download</button>
+                    <div class="export-actions">
+                        <button type="button" class="download-btn" id="download-export">Download</button>
+                        <button type="button" class="download-btn" id="copy-export">Copy</button>
+                    </div>
+                    <span class="export-status" id="export-status" role="status" aria-live="polite"></span>
                 </div>
             </details>
 

@@ -25,6 +25,9 @@
     var pngScale = document.getElementById('png-scale')
     var formatInputs = document.querySelectorAll('input[name="export-format"]')
     var downloadExport = document.getElementById('download-export')
+    var copyExport = document.getElementById('copy-export')
+    var copyInput = document.getElementById('copy-input')
+    var exportStatus = document.getElementById('export-status')
 
     var debounceId = null
     var currentRoot = null
@@ -92,8 +95,7 @@
             return
         }
 
-        expression = expression.replace(/\s+/g, '')
-        if (expression.length === 0) {
+        if (expression.trim().length === 0) {
             currentRoot = null
             clearError()
             clearCanvas()
@@ -125,23 +127,49 @@
         link.click()
     }
 
-    function exportPng(scale) {
+    function buildPngBlob(scale) {
         if (!currentRoot) {
-            return
+            return Promise.resolve(null)
         }
         var exportScale = Math.max(1, scale || 1)
         var colors = getThemeColors()
         var warmPromise = (typeof warmLatexCache === 'function')
             ? warmLatexCache(currentRoot, colors.text)
             : Promise.resolve()
-        warmPromise.then(function () {
+        return warmPromise.then(function () {
             var offscreen = document.createElement('canvas')
             offscreen.width = cssWidth * exportScale
             offscreen.height = cssHeight * exportScale
             var offscreenContext = offscreen.getContext('2d')
             offscreenContext.scale(exportScale, exportScale)
             drawTree(currentRoot, offscreenContext)
-            triggerDownload(offscreen.toDataURL('image/png'), 'expression-tree.png')
+            return new Promise(function (resolve) {
+                if (typeof offscreen.toBlob === 'function') {
+                    offscreen.toBlob(function (blob) { resolve(blob) }, 'image/png')
+                } else {
+                    // Fallback: derive blob from data URL. Guard against a
+                    // malformed data URL so we don't throw inside atob().
+                    var dataUrl = offscreen.toDataURL('image/png')
+                    var commaIndex = dataUrl.indexOf(',')
+                    if (commaIndex === -1) {
+                        resolve(null)
+                        return
+                    }
+                    var binary = atob(dataUrl.slice(commaIndex + 1))
+                    var bytes = new Uint8Array(binary.length)
+                    for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i) }
+                    resolve(new Blob([bytes], { type: 'image/png' }))
+                }
+            })
+        })
+    }
+
+    function exportPng(scale) {
+        return buildPngBlob(scale).then(function (blob) {
+            if (!blob) { return }
+            var url = URL.createObjectURL(blob)
+            triggerDownload(url, 'expression-tree.png')
+            setTimeout(function () { URL.revokeObjectURL(url) }, 1000)
         })
     }
 
@@ -241,19 +269,98 @@
         return svgMeasureCanvas.getContext('2d')
     }
 
-    function exportSvg() {
+    function buildSvgString() {
         if (!currentRoot) {
-            return
+            return Promise.resolve('')
         }
         var cssPromise = (typeof getKatexCss === 'function') ? getKatexCss() : Promise.resolve('')
-        cssPromise.then(function (cssText) {
-            var svgString = treeToSvg(currentRoot, cssText)
+        return cssPromise.then(function (cssText) {
+            return treeToSvg(currentRoot, cssText)
+        })
+    }
+
+    function exportSvg() {
+        return buildSvgString().then(function (svgString) {
+            if (!svgString) { return }
             var blob = new Blob([svgString], { type: 'image/svg+xml' })
             var url = URL.createObjectURL(blob)
             triggerDownload(url, 'expression-tree.svg')
             setTimeout(function () {
                 URL.revokeObjectURL(url)
             }, 1000)
+        })
+    }
+
+    var statusTimeoutId = null
+    function setExportStatus(message, isError) {
+        if (!exportStatus) { return }
+        exportStatus.textContent = message || ''
+        if (isError) {
+            exportStatus.classList.add('error')
+        } else {
+            exportStatus.classList.remove('error')
+        }
+        if (statusTimeoutId) { clearTimeout(statusTimeoutId) }
+        if (message) {
+            statusTimeoutId = setTimeout(function () {
+                exportStatus.textContent = ''
+                exportStatus.classList.remove('error')
+            }, 2000)
+        }
+    }
+
+    function canWriteClipboardItems() {
+        return typeof navigator !== 'undefined' &&
+            navigator.clipboard &&
+            typeof navigator.clipboard.write === 'function' &&
+            typeof window !== 'undefined' &&
+            typeof window.ClipboardItem === 'function'
+    }
+
+    function copyPngToClipboard(scale) {
+        if (!canWriteClipboardItems()) {
+            setExportStatus('Clipboard image copy unsupported', true)
+            return Promise.resolve()
+        }
+        return buildPngBlob(scale).then(function (blob) {
+            if (!blob) { return }
+            var item = new window.ClipboardItem({ 'image/png': blob })
+            return navigator.clipboard.write([item]).then(function () {
+                setExportStatus('Copied!', false)
+            })
+        }).catch(function () {
+            setExportStatus('Copy failed', true)
+        })
+    }
+
+    function copySvgToClipboard() {
+        return buildSvgString().then(function (svgString) {
+            if (!svgString) { return }
+            // Prefer ClipboardItem so paste targets can pick up the SVG MIME
+            // type, but fall back to plain text which works everywhere.
+            if (canWriteClipboardItems()) {
+                var blob = new Blob([svgString], { type: 'image/svg+xml' })
+                var textBlob = new Blob([svgString], { type: 'text/plain' })
+                var item = new window.ClipboardItem({
+                    'image/svg+xml': blob,
+                    'text/plain': textBlob
+                })
+                return navigator.clipboard.write([item]).then(function () {
+                    setExportStatus('Copied!', false)
+                }, function () {
+                    return navigator.clipboard.writeText(svgString).then(function () {
+                        setExportStatus('Copied as text', false)
+                    })
+                })
+            }
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                return navigator.clipboard.writeText(svgString).then(function () {
+                    setExportStatus('Copied as text', false)
+                })
+            }
+            setExportStatus('Clipboard unsupported', true)
+        }).catch(function () {
+            setExportStatus('Copy failed', true)
         })
     }
 
@@ -347,6 +454,51 @@
         }
         exportPopover.open = false
     })
+
+    if (copyExport) {
+        copyExport.addEventListener('click', function () {
+            if (!currentRoot) {
+                setExportStatus('Nothing to copy', true)
+                return
+            }
+            if (getSelectedExportFormat() === 'svg') {
+                copySvgToClipboard()
+            } else {
+                copyPngToClipboard(parseInt(pngScale.value, 10) || 1)
+            }
+        })
+    }
+
+    if (copyInput) {
+        var copyInputResetId = null
+        copyInput.addEventListener('click', function () {
+            var text = input.value || ''
+            var showCopied = function () {
+                copyInput.classList.add('copied')
+                if (copyInputResetId) { clearTimeout(copyInputResetId) }
+                copyInputResetId = setTimeout(function () {
+                    copyInput.classList.remove('copied')
+                }, 1500)
+            }
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                navigator.clipboard.writeText(text).then(showCopied, function () {
+                    // Ignore clipboard rejection (e.g. insecure context).
+                })
+            } else {
+                // Fallback for environments without the async Clipboard API.
+                // document.execCommand('copy') is deprecated but remains the
+                // only option on older/insecure contexts.
+                try {
+                    input.focus()
+                    input.select()
+                    document.execCommand('copy')
+                    showCopied()
+                } catch (e) {
+                    // No clipboard available; silently ignore.
+                }
+            }
+        })
+    }
 
     document.addEventListener('click', function (event) {
         if (!exportPopover.open) {
