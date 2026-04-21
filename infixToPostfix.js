@@ -42,7 +42,7 @@ function tokenize(expression) {
     }
     if (current === '#') {
       if (i + 1 >= expression.length || !CUSTOM_IDENTIFIER_START.test(expression[i + 1])) {
-        return null
+        throw new Error("Expected an identifier after '#'")
       }
       var customName = expression[i + 1]
       i++
@@ -64,11 +64,11 @@ function tokenize(expression) {
       } else if (UNARY_FUNCTIONS.indexOf(ident) !== -1) {
         tokens.push(ident)
       } else {
-        return null
+        throw new Error("Unknown identifier '" + ident + "' (use '#" + ident + "' for a custom function)")
       }
       continue
     }
-    return null
+    throw new Error("Invalid character '" + current + "' in expression")
   }
   return tokens
 }
@@ -169,34 +169,54 @@ function parseAddSubtract(tokens, index, stopOnComma) {
   return { nextIndex: i }
 }
 
-function isValidTokens(tokens) {
-  var parsed = parseAddSubtract(tokens, 0, false)
-  return !!parsed && parsed.nextIndex === tokens.length
+function describeToken(token) {
+  if (typeof token === 'undefined') {
+    return 'end of expression'
+  }
+  if (isCustomToken(token)) {
+    return "'#" + token.name + "'"
+  }
+  return "'" + token + "'"
 }
 
-function isValidExpression(expr) {
-  if (!ALLOWED_CHARACTERS_REGEX.test(expr)) {
-    return false
+function validateTokens(tokens) {
+  var depth = 0
+  for (var k = 0; k < tokens.length; k++) {
+    if (tokens[k] === '(') {
+      depth++
+    } else if (tokens[k] === ')') {
+      depth--
+      if (depth < 0) {
+        throw new Error("Mismatched ')' with no matching '('")
+      }
+    }
   }
-  var tokens = tokenize(expr)
-  if (tokens === null || tokens.length === 0) {
-    return false;
+  if (depth > 0) {
+    throw new Error("Missing closing ')'")
   }
-  return isValidTokens(tokens)
+  var parsed = parseAddSubtract(tokens, 0, false)
+  if (!parsed) {
+    throw new Error('Incomplete or malformed expression')
+  }
+  if (parsed.nextIndex !== tokens.length) {
+    throw new Error('Unexpected token ' + describeToken(tokens[parsed.nextIndex]) + ' at position ' + parsed.nextIndex)
+  }
 }
 
 function infixToPostfix(expression) {
-  if (!isValidExpression(expression)) {
-    return null;
+  if (!ALLOWED_CHARACTERS_REGEX.test(expression)) {
+    var badMatch = expression.match(/[^A-Za-z0-9_#,+\-*/()\s]/)
+    throw new Error("Invalid character '" + (badMatch ? badMatch[0] : '?') + "' in expression")
   }
+  var tokens = tokenize(expression)
+  if (tokens.length === 0) {
+    throw new Error('Empty expression')
+  }
+  validateTokens(tokens)
   const prec = { "*": 3, "/": 3, "-": 2, "+": 2, "(": 1 }
   var op_stack = []
   var customCallStack = []
   var postfixList = []
-  var tokens = tokenize(expression)
-  if (tokens === null) {
-    return null
-  }
   for (var i = 0; i < tokens.length; i++) {
     var token = tokens[i]
     if (isVariableToken(token)) {
@@ -218,21 +238,21 @@ function infixToPostfix(expression) {
       var commaTop = op_stack.pop()
       while (commaTop !== '(') {
         if (typeof commaTop === 'undefined') {
-          return null
+          throw new Error("Unexpected ',' outside of a function call")
         }
         postfixList.push(commaTop)
         commaTop = op_stack.pop()
       }
       op_stack.push('(')
       if (customCallStack.length === 0) {
-        return null
+        throw new Error("Unexpected ',' outside of a function call")
       }
       customCallStack[customCallStack.length - 1].commaCount++
     } else if (")" === token) {
       var top_op_token = op_stack.pop()
       while (top_op_token !== '(') {
         if (typeof top_op_token === 'undefined') {
-          return null
+          throw new Error("Mismatched ')' with no matching '('")
         }
         postfixList.push(top_op_token)
         top_op_token = op_stack.pop()
@@ -243,7 +263,7 @@ function infixToPostfix(expression) {
         if (isCustomToken(emittedFunction)) {
           var customFrame = customCallStack.pop()
           if (!customFrame || customFrame.name !== emittedFunction.name) {
-            return null
+            throw new Error("Mismatched custom function call for '#" + emittedFunction.name + "'")
           }
           postfixList.push(createCustomToken(emittedFunction.name, customFrame.commaCount + 1))
         } else {
@@ -263,11 +283,12 @@ function infixToPostfix(expression) {
     }
   }
   while (op_stack.length > 0) {
-    if (op_stack.slice(-1)[0] === '(') {
-      return null
+    var tail = op_stack.slice(-1)[0]
+    if (tail === '(') {
+      throw new Error("Missing closing ')'")
     }
-    if (isCustomToken(op_stack.slice(-1)[0])) {
-      return null
+    if (isCustomToken(tail)) {
+      throw new Error("Missing closing ')' for '#" + tail.name + "'")
     }
     postfixList.push(op_stack.pop())
   }
