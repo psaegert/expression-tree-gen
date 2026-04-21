@@ -5,6 +5,18 @@ With that in mind, and inspired on my lectures on the tree data structure I deci
 
 Visit this [website](https://lnogueir.github.io/expression-tree-gen/) to simulate an expression yourself.
 
+Supported syntax includes:
+- Binary operators: `+`, `-`, `*`, `/`
+- Single-letter variables: `a`-`z`
+- Unary functions: `sin`, `cos`, `tan`, `log`, `ln`, `sqrt`, `exp`, `abs`
+
+Examples:
+- `a+b`
+- `sin(a)`
+- `sin(a)+cos(b)`
+- `sin(cos(a))`
+- `sin(a+b)*cos(c)`
+
 ## Credits:
 
 * This [article](https://llimllib.github.io/pymag-trees/) which helped me a lot introducing me to Knuth's algorithm for the layout of the tree.
