@@ -89,7 +89,7 @@ body {
     border-radius: 10px;
     background: transparent;
     color: var(--fg);
-    padding: 0.8rem 5rem 0.8rem 0.85rem;
+    padding: 0.8rem 6.5rem 0.8rem 0.85rem;
     font-size: 1rem;
     outline: none;
 }
@@ -100,7 +100,7 @@ body {
 
 .warning {
     position: absolute;
-    right: 3rem;
+    right: 4.5rem;
     top: 50%;
     transform: translateY(-50%);
     font-size: 1rem;
@@ -130,10 +130,29 @@ body {
 
 .input-icon {
     position: absolute;
-    right: 0.5rem;
     top: 50%;
     transform: translateY(-50%);
     padding: 0.25rem;
+}
+
+.input-icon-clear {
+    right: 0.5rem;
+}
+
+.input-icon-copy {
+    right: 2rem;
+}
+
+.input-icon-copy .copy-done {
+    display: none;
+}
+
+.input-icon-copy.copied .copy-default {
+    display: none;
+}
+
+.input-icon-copy.copied .copy-done {
+    display: inline-flex;
 }
 
 .save-btn {
@@ -253,4 +272,28 @@ canvas {
 
 .download-btn:hover {
     opacity: 0.9;
+}
+
+.export-actions {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.export-actions .download-btn {
+    flex: 1;
+}
+
+.export-status {
+    font-size: 0.8rem;
+    color: var(--muted);
+    min-height: 1em;
+    text-align: center;
+}
+
+.export-status.error {
+    color: #e53935;
+}
+
+[data-theme="dark"] .export-status.error {
+    color: #ff6b68;
 }

@@ -102,6 +102,12 @@ function baseIdentifierToLatex(name) {
 
 // Produce the LaTeX source that should be rendered inside a node for the given token.
 function getTokenLatex(token) {
+    if (isLiteralToken(token)) {
+        if (token.kind === 'latex') {
+            return token.value
+        }
+        return '\\text{' + escapeLatexText(token.value) + '}'
+    }
     if (isCustomToken(token)) {
         var info = identifierToLatex(token.name)
         return info.latex || '\\text{' + escapeLatexText(token.name) + '}'
@@ -118,6 +124,10 @@ function getTokenLatex(token) {
         return '\\' + token
     }
     if (typeof token === 'string') {
+        // Numeric literal: render digits as-is in math mode.
+        if (/^[0-9]+(\.[0-9]+)?$/.test(token)) {
+            return token
+        }
         var ident = identifierToLatex(token)
         if (ident.handled) {
             return ident.latex
@@ -139,6 +149,11 @@ function isCustomToken(token) {
     return token && typeof token === 'object' && token.type === 'custom' && typeof token.name === 'string'
 }
 
+function isLiteralToken(token) {
+    return token && typeof token === 'object' && token.type === 'literal' &&
+        (token.kind === 'text' || token.kind === 'latex') && typeof token.value === 'string'
+}
+
 function getTokenArity(token) {
     if (isBinaryOperator(token)) {
         return 2
@@ -155,6 +170,9 @@ function getTokenArity(token) {
 function getTokenLabel(token) {
     if (isCustomToken(token)) {
         return token.name
+    }
+    if (isLiteralToken(token)) {
+        return token.value
     }
     return token
 }
