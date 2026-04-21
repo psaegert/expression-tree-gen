@@ -25,6 +25,35 @@ Examples:
 - `sin(#add(a,b))*#pi`
 - `#clamp(x,a,b)`
 
+## LaTeX-rendered node labels
+
+Node labels are typeset with [KaTeX](https://katex.org/) (loaded from a CDN,
+so no build step is required) for both the interactive canvas and the
+exported PNG / SVG files. A few conventions make common symbols render
+nicely out of the box:
+
+- **Operators**: `*` renders as `·` (`\cdot`), `/` as `÷` (`\div`); `+`
+  and `-` are left as-is.
+- **Unary functions**: `sin`, `cos`, `tan`, `log`, `ln`, `exp` render in
+  upright math style; `sqrt` shows a radical (`√`) and `abs` shows
+  `|·|`.
+- **Custom token symbols**: well-known names are mapped to their LaTeX
+  command, e.g. `#pi` → π, `#theta` → θ, `#alpha` → α, `#beta` → β,
+  `#gamma` → γ, `#lambda` → λ, `#mu` → μ, `#sigma` → σ, `#phi` → φ,
+  `#omega` → ω (plus uppercase variants like `#Gamma`, `#Delta`,
+  `#Sigma`, `#Omega`, …), `#infty` / `#infinity` → ∞, `#sum` → ∑,
+  `#prod` → ∏, `#int` → ∫, `#nabla` → ∇, `#partial` → ∂,
+  `#emptyset` → ∅.
+- **Subscripts**: identifiers ending in digits are rendered with the
+  digits as a subscript — `x1` → *x*₁, `#theta12` → θ₁₂. An underscore
+  also introduces a subscript — `#a_foo` → *a*<sub>foo</sub>.
+- **Unknown custom names** fall back to upright `\mathrm{name}` so they
+  remain legible without looking like variable products.
+
+If KaTeX fails to load or a label cannot be parsed, the node falls back
+to rendering the raw token text, so expressions will always be
+displayed.
+
 ## Credits:
 
 * This [article](https://llimllib.github.io/pymag-trees/) which helped me a lot introducing me to Knuth's algorithm for the layout of the tree.
