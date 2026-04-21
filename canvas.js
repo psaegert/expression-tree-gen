@@ -173,7 +173,7 @@
         triggerDownload(url, 'expression-tree.svg')
         setTimeout(function () {
             URL.revokeObjectURL(url)
-        }, 0)
+        }, 1000)
     }
 
     function getSelectedExportFormat() {
