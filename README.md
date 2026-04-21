@@ -9,6 +9,9 @@ Supported syntax includes:
 - Binary operators: `+`, `-`, `*`, `/`
 - Single-letter variables: `a`-`z`
 - Unary functions: `sin`, `cos`, `tan`, `log`, `ln`, `sqrt`, `exp`, `abs`
+- Custom operators/functions:
+  - Arity 0: `#pi`
+  - Arity 1-3 (inferred): `#sign(a)`, `#add(a,b)`, `#clamp(x,a,b)`
 
 Examples:
 - `a+b`
@@ -16,6 +19,11 @@ Examples:
 - `sin(a)+cos(b)`
 - `sin(cos(a))`
 - `sin(a+b)*cos(c)`
+- `#pi`
+- `#sign(a)`
+- `#add(a,b)`
+- `sin(#add(a,b))*#pi`
+- `#clamp(x,a,b)`
 
 ## Credits:
 
