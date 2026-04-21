@@ -82,10 +82,20 @@
       flex-direction: row;
       justify-content: center;
       align-items: center;
+      flex-wrap: wrap;
+      row-gap: 10px;
   }
 
   .buttons > * {
       margin-right: 15px;
+  }
+
+  .bg-mode-label,
+  .animate-toggle-label{
+      color: #e0e0e0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
   }
 
   .contact-section button{
