@@ -7,6 +7,8 @@
         '(a * b) - c + z / x',
         'sin(a)+cos(b)',
         'sin(a+b)*cos(c)',
+        'sin(#add(a,b))*#pi',
+        '#clamp(x,#min(a,b),c)',
         'x - y + (c / (a + b))',
         '(a / y) + b - (c * x)',
         '(a - b) * (c + d) / z'
@@ -19,7 +21,6 @@
         var expression = document.getElementById('expression-input').value
         if (typeof expression !== 'undefined' && null != expression) {
             expression = expression.replace(/\s+/g, '')
-            expression = expression.toLowerCase()
             var postfix = infixToPostfix(expression);
             if (null !== postfix) {
                 try {
@@ -63,10 +64,11 @@ function displayErrorMessage() {
                 - You may only use these brackets ( ). <br/>
                 - Use * for multiplication and / for division. <br/>
                 - Supported unary functions: sin, cos, tan, log, ln, sqrt, exp, abs. <br/>
+                - Custom operators: #name, #name(arg), #name(arg1,arg2,arg3) (max arity 3). <br/>
                 - Valid operators and operands are:<br/>
                 <div style="margin-left: 10px;">
                     <i>Operators</i>: <b>[+ - * / ]</b><br/>
-                    <i>Operands</i>: Single letters a-z.
+                    <i>Operands</i>: Single letters a-z and custom operators.
                 </div>
             </div>
         `,

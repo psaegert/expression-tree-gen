@@ -9,15 +9,51 @@ function isUnaryFunction(token) {
     return TREE_UNARY_FUNCTIONS.includes(token)
 }
 
-function Node(value, arity = 0) {
+function isCustomToken(token) {
+    return token && typeof token === 'object' && token.type === 'custom' && typeof token.name === 'string'
+}
+
+function getTokenArity(token) {
+    if (isBinaryOperator(token)) {
+        return 2
+    }
+    if (isUnaryFunction(token)) {
+        return 1
+    }
+    if (isCustomToken(token)) {
+        return token.arity || 0
+    }
+    return 0
+}
+
+function getTokenLabel(token) {
+    if (isCustomToken(token)) {
+        return '#' + token.name
+    }
+    return token
+}
+
+function Node(value, arity = 0, children = []) {
     this.value = value;
     this.arity = arity;
     this.x = null;
     this.y = null;
-    this.right = null;
-    this.left = null;
+    this.children = children;
 
-    this.isLeaf = () => this.right == null && this.left == null;
+    Object.defineProperty(this, 'left', {
+        get: () => this.children[0] || null,
+        set: (node) => {
+            this.children[0] = node
+        }
+    })
+    Object.defineProperty(this, 'right', {
+        get: () => this.children[1] || null,
+        set: (node) => {
+            this.children[1] = node
+        }
+    })
+
+    this.isLeaf = () => this.children.length === 0;
 
     this.getRadius = function (context) {
         context.font = '25px Times New Roman'
@@ -25,18 +61,22 @@ function Node(value, arity = 0) {
         return Math.max(32.5, (textWidth / 2) + 10)
     }
 
-    this.drawEdge = function (context, x, y, left_way, resolve) {
+    this.drawEdge = function (context, childNode, resolve) {
         const radius = this.getRadius(context)
+        const childRadius = childNode.getRadius(context)
         context.strokeStyle = 'gray';
-        context.beginPath()
-        const x_y_ratio = Math.abs(this.y - y) / Math.abs(this.x - x)
-        const w = radius * Math.sqrt(1 / (1 + Math.pow(x_y_ratio, 2)))
-        const d = x_y_ratio * w
-        if (left_way) {
-            drawEdgeAnimated(this.x - w, this.y + d, x + w, y - d, context, resolve)
-        } else {
-            drawEdgeAnimated(this.x + w, this.y + d, x - w, y - d, context, resolve)
+        const dx = childNode.x - this.x
+        const dy = childNode.y - this.y
+        const distance = Math.sqrt((dx * dx) + (dy * dy))
+        if (distance === 0) {
+            resolve()
+            return
         }
+        const startX = this.x + (dx / distance) * radius
+        const startY = this.y + (dy / distance) * radius
+        const endX = childNode.x - (dx / distance) * childRadius
+        const endY = childNode.y - (dy / distance) * childRadius
+        drawEdgeAnimated(startX, startY, endX, endY, context, resolve)
     }
 
     this.draw = function (context) {
@@ -91,26 +131,15 @@ function constructTree(postfix) {
     var stack = []
     for (var i = 0; i < postfix.length; i++) {
         var token = postfix[i]
-        if (isBinaryOperator(token)) {
-            if (stack.length < 2) {
-                throw new Error('Invalid postfix expression')
-            }
-            var rightNode = stack.pop()
-            var leftNode = stack.pop()
-            var binaryNode = new Node(token, 2)
-            binaryNode.left = leftNode
-            binaryNode.right = rightNode
-            stack.push(binaryNode)
-        } else if (isUnaryFunction(token)) {
-            if (stack.length < 1) {
-                throw new Error('Invalid postfix expression')
-            }
-            var childNode = stack.pop()
-            var unaryNode = new Node(token, 1)
-            unaryNode.right = childNode
-            stack.push(unaryNode)
+        var arity = getTokenArity(token)
+        if (arity === 0) {
+            stack.push(new Node(getTokenLabel(token), 0, []))
         } else {
-            stack.push(new Node(token, 0))
+            if (stack.length < arity) {
+                throw new Error('Invalid postfix expression')
+            }
+            var children = stack.splice(stack.length - arity, arity)
+            stack.push(new Node(getTokenLabel(token), arity, children))
         }
     }
     if (stack.length !== 1) {
@@ -124,8 +153,9 @@ function getSize(root) {
     function countSize(root) {
         if (null != root) {
             size++;
-            countSize(root.left)
-            countSize(root.right)
+            for (var i = 0; i < root.children.length; i++) {
+                countSize(root.children[i])
+            }
         }
     }
     countSize(root);
@@ -134,43 +164,64 @@ function getSize(root) {
 
 function print_coords(root) {
     if (null != root) {
-        print_coords(root.left)
         console.log(root.value, root.x, root.y)
-        print_coords(root.right)
+        for (var i = 0; i < root.children.length; i++) {
+            print_coords(root.children[i])
+        }
     }
 }
 
 function setCoordinates(root) {
-    var i = 0
     const OFFSET = 50
-    const size = getSize(root)
+    if (null == root) {
+        return
+    }
+
+    function getLeafCount(node) {
+        if (node.children.length === 0) {
+            node.leafCount = 1
+            return 1
+        }
+        var leaves = 0
+        for (var j = 0; j < node.children.length; j++) {
+            leaves += getLeafCount(node.children[j])
+        }
+        node.leafCount = leaves
+        return leaves
+    }
+
+    const size = getLeafCount(root)
     const canvas_mid_point = window.innerWidth / 2;
-    function setCoordinates(subt, depth) {
-        if (null != subt) {
-            setCoordinates(subt.left, depth + 1)
-            subt.x = canvas_mid_point + (OFFSET * (i - size / 2))
-            subt.y = 1.75 * OFFSET + (depth * 1.5 * OFFSET)
-            i++
-            setCoordinates(subt.right, depth + 1)
-            if (subt.left === null && subt.right !== null) {
-                subt.right.x = subt.x
-            }
+    function assignCoordinates(node, depth, startX, endX) {
+        node.x = (startX + endX) / 2
+        node.y = 1.75 * OFFSET + (depth * 1.5 * OFFSET)
+        if (node.children.length === 0) {
+            return
+        }
+        var totalLeaves = 0
+        for (var i = 0; i < node.children.length; i++) {
+            totalLeaves += node.children[i].leafCount
+        }
+        var currentX = startX
+        for (var childIndex = 0; childIndex < node.children.length; childIndex++) {
+            var child = node.children[childIndex]
+            var width = (endX - startX) * (child.leafCount / totalLeaves)
+            assignCoordinates(child, depth + 1, currentX, currentX + width)
+            currentX += width
         }
     }
-    setCoordinates(root, 0)
+    var totalWidth = size * OFFSET
+    assignCoordinates(root, 0, canvas_mid_point - (totalWidth / 2), canvas_mid_point + (totalWidth / 2))
 }
 
 // must be async in order to await till animation is done
 async function drawTree(root, context) {
     if (null != root) {
         root.draw(context)
-        if (null != root.left) {
-            await new Promise(resolve => root.drawEdge(context, root.left.x, root.left.y, true, resolve))
+        for (var i = 0; i < root.children.length; i++) {
+            var child = root.children[i]
+            await new Promise(resolve => root.drawEdge(context, child, resolve))
+            await drawTree(child, context)
         }
-        drawTree(root.left, context)
-        if (null != root.right) {
-            await new Promise(resolve => root.drawEdge(context, root.right.x, root.right.y, false, resolve))
-        }
-        drawTree(root.right, context)
     }
 }
