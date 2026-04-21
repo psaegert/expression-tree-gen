@@ -169,11 +169,6 @@ function parseAddSubtract(tokens, index, stopOnComma) {
   return { nextIndex: i }
 }
 
-function isValidTokens(tokens) {
-  var parsed = parseAddSubtract(tokens, 0, false)
-  return !!parsed && parsed.nextIndex === tokens.length
-}
-
 function describeToken(token) {
   if (typeof token === 'undefined') {
     return 'end of expression'
@@ -205,21 +200,6 @@ function validateTokens(tokens) {
   }
   if (parsed.nextIndex !== tokens.length) {
     throw new Error('Unexpected token ' + describeToken(tokens[parsed.nextIndex]) + ' at position ' + parsed.nextIndex)
-  }
-}
-
-function isValidExpression(expr) {
-  try {
-    if (!ALLOWED_CHARACTERS_REGEX.test(expr)) {
-      return false
-    }
-    var tokens = tokenize(expr)
-    if (tokens === null || tokens.length === 0) {
-      return false;
-    }
-    return isValidTokens(tokens)
-  } catch (e) {
-    return false
   }
 }
 
