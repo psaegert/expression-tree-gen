@@ -33,23 +33,28 @@ function getTokenLabel(token) {
     return token
 }
 
-function Node(value, arity = 0, children = []) {
+function Node(value, arity = 0, children) {
+    var self = this
     this.value = value;
     this.arity = arity;
     this.x = null;
     this.y = null;
-    this.children = children;
+    this.children = children || [];
 
     Object.defineProperty(this, 'left', {
-        get: () => this.children[0] || null,
-        set: (node) => {
-            this.children[0] = node
+        get: function () {
+            return self.children[0] || null
+        },
+        set: function (node) {
+            self.children[0] = node
         }
     })
     Object.defineProperty(this, 'right', {
-        get: () => this.children[1] || null,
-        set: (node) => {
-            this.children[1] = node
+        get: function () {
+            return self.children[1] || null
+        },
+        set: function (node) {
+            self.children[1] = node
         }
     })
 

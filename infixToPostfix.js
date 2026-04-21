@@ -142,7 +142,7 @@ function parsePrimary(tokens, index, stopOnComma) {
       argsIndex = arg.nextIndex
       if (tokens[argsIndex] === ',') {
         argsIndex++
-        if (tokens[argsIndex] === ')' || typeof tokens[argsIndex] === 'undefined') {
+        if (isStopToken(tokens[argsIndex], false)) {
           return null
         }
         continue
@@ -256,8 +256,8 @@ function isValidExpression(expr) {
   if (tokens === null || tokens.length === 0) {
     return false;
   }
-  var hasCustom = tokens.some(function (token) { return isCustomToken(token) })
-  if (hasCustom) {
+  var hasCustomToken = tokens.some(function (token) { return isCustomToken(token) })
+  if (hasCustomToken) {
     return isValidCustomExpression(tokens)
   }
   try {
@@ -302,8 +302,8 @@ function infixToPostfix(expression) {
     } else if (UNARY_FUNCTIONS.indexOf(token) !== -1) {
       op_stack.push(token)
     } else if ("(" === token) {
-      if (isCustomToken(tokens[i - 1])) {
-        customCallStack.push({ token: tokens[i - 1], commaCount: 0 })
+      if (i > 0 && isCustomToken(tokens[i - 1])) {
+        customCallStack.push({ name: tokens[i - 1].name, commaCount: 0 })
       }
       op_stack.push(token)
     } else if ("," === token) {
@@ -334,7 +334,7 @@ function infixToPostfix(expression) {
         var emittedFunction = op_stack.pop()
         if (isCustomToken(emittedFunction)) {
           var customFrame = customCallStack.pop()
-          if (!customFrame || customFrame.token !== emittedFunction) {
+          if (!customFrame || customFrame.name !== emittedFunction.name) {
             return null
           }
           postfixList.push(createCustomToken(emittedFunction.name, customFrame.commaCount + 1))
