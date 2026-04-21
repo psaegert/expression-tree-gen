@@ -1,6 +1,3 @@
-
-
-
 (function () {
     const SAMPLE_EXPRESSIONS = [
         '(a + b)*c - (x - y)/z',
@@ -13,94 +10,133 @@
         '(a / y) + b - (c * x)',
         '(a - b) * (c + d) / z'
     ]
+    const THEME_STORAGE_KEY = 'etg-theme'
+    const DEBOUNCE_MS = 150
+
     var canvas = document.querySelector('canvas')
-    var c = canvas.getContext('2d')
-    function clearCanvas() { c.clearRect(0, 0, canvas.width, canvas.height) }
-    function exportCanvas() {
-        var bgMode = document.getElementById('export-bg-mode').value
-        var dataURL
-        if (bgMode === 'white') {
-            var exportCanvas = document.createElement('canvas')
-            var exportContext = exportCanvas.getContext('2d')
-            exportCanvas.width = canvas.width
-            exportCanvas.height = canvas.height
-            exportContext.fillStyle = '#ffffff'
-            exportContext.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
-            exportContext.drawImage(canvas, 0, 0)
-            dataURL = exportCanvas.toDataURL('image/png')
-        } else {
-            dataURL = canvas.toDataURL('image/png')
+    var context = canvas.getContext('2d')
+    var container = document.getElementById('canvas-container')
+    var input = document.getElementById('expression-input')
+    var warning = document.getElementById('warning')
+    var themeToggle = document.getElementById('theme-toggle')
+
+    var debounceId = null
+    var currentRoot = null
+
+    function resizeCanvas() {
+        canvas.height = container.offsetHeight
+        canvas.width = container.offsetWidth
+    }
+
+    function clearCanvas() {
+        context.clearRect(0, 0, canvas.width, canvas.height)
+    }
+
+    function setWarningVisible(isVisible) {
+        warning.hidden = !isVisible
+    }
+
+    function renderRoot(root) {
+        clearCanvas()
+        if (!root) {
+            return
         }
+        setCoordinates(root)
+        drawTree(root, context)
+    }
+
+    function renderExpression() {
+        var expression = input.value
+        if (typeof expression === 'undefined' || expression === null) {
+            setWarningVisible(false)
+            return
+        }
+
+        expression = expression.replace(/\s+/g, '')
+        if (expression.length === 0) {
+            currentRoot = null
+            setWarningVisible(false)
+            clearCanvas()
+            return
+        }
+
+        try {
+            var postfix = infixToPostfix(expression)
+            if (postfix === null) {
+                setWarningVisible(true)
+                return
+            }
+            var root = constructTree(postfix)
+            currentRoot = root
+            setWarningVisible(false)
+            renderRoot(root)
+        } catch (error) {
+            setWarningVisible(true)
+        }
+    }
+
+    function debouncedRender() {
+        clearTimeout(debounceId)
+        debounceId = setTimeout(renderExpression, DEBOUNCE_MS)
+    }
+
+    function exportCanvas() {
         var link = document.createElement('a')
-        link.href = dataURL
+        link.href = canvas.toDataURL('image/png')
         link.download = 'expression-tree.png'
         link.click()
     }
 
-    document.getElementById('generate-tree').addEventListener('click', () => {
-        var expression = document.getElementById('expression-input').value
-        if (typeof expression !== 'undefined' && null != expression) {
-            expression = expression.replace(/\s+/g, '')
-            var postfix = infixToPostfix(expression);
-            if (null !== postfix) {
-                try {
-                    var root = constructTree(postfix)
-                    setCoordinates(root)
-                    clearCanvas()
-                    canvas.height = document.getElementById('canvas-container').offsetHeight;
-                    canvas.width = document.getElementById('canvas-container').offsetWidth;
-                    drawTree(root, c, document.getElementById('animate-toggle').checked)
-                } catch (e) {
-                    displayErrorMessage()
-                }
-            } else {
-                displayErrorMessage()
-            }
+    function getPreferredTheme() {
+        var storedTheme = localStorage.getItem(THEME_STORAGE_KEY)
+        if (storedTheme === 'light' || storedTheme === 'dark') {
+            return storedTheme
+        }
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
 
+    function applyTheme(theme, shouldPersist) {
+        document.documentElement.setAttribute('data-theme', theme)
+        if (shouldPersist) {
+            localStorage.setItem(THEME_STORAGE_KEY, theme)
+        }
+        if (currentRoot) {
+            renderRoot(currentRoot)
         } else {
-            displayErrorMessage()
+            clearCanvas()
+        }
+    }
+
+    resizeCanvas()
+
+    window.addEventListener('resize', function () {
+        resizeCanvas()
+        if (currentRoot) {
+            renderRoot(currentRoot)
+        } else {
+            clearCanvas()
         }
     })
 
-    document.getElementById('clear-tree').addEventListener('click', () => {
-        document.getElementById('expression-input').value = ''
+    input.addEventListener('input', debouncedRender)
+
+    document.getElementById('clear-tree').addEventListener('click', function () {
+        input.value = ''
+        currentRoot = null
+        setWarningVisible(false)
         clearCanvas()
+        input.focus()
     })
 
     document.getElementById('export-tree').addEventListener('click', exportCanvas)
 
-    document.getElementById('expression-input').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault()
-            document.getElementById('generate-tree').click()
-        }
+    themeToggle.addEventListener('click', function () {
+        var nextTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'
+        applyTheme(nextTheme, true)
     })
 
-    document.getElementById('expression-input').value = SAMPLE_EXPRESSIONS[Math.floor(Math.random() * SAMPLE_EXPRESSIONS.length)]
-    setTimeout(() => {
-        document.getElementById('generate-tree').click()
-    }, 500)
+    applyTheme(getPreferredTheme(), false)
+
+    input.value = SAMPLE_EXPRESSIONS[Math.floor(Math.random() * SAMPLE_EXPRESSIONS.length)]
+    renderExpression()
 })();
-
-
-
-function displayErrorMessage() {
-    Swal.fire({
-        icon: 'error',
-        title: 'Invalid expression',
-        html: `
-            <div style="font-size:1.1em;text-align: left;margin:0px 0px 0px 60px;">
-                - You may only use these brackets ( ). <br/>
-                - Use * for multiplication and / for division. <br/>
-                - Supported unary functions: sin, cos, tan, log, ln, sqrt, exp, abs. <br/>
-                - Custom operators: #name, #name(arg), #name(arg1,arg2,arg3) (max arity 3). <br/>
-                - Valid operators and operands are:<br/>
-                <div style="margin-left: 10px;">
-                    <i>Operators</i>: <b>[+ - * / ]</b><br/>
-                    <i>Operands</i>: Single letters a-z and custom operators.
-                </div>
-            </div>
-        `,
-        footer: '<a href="https://github.com/lnogueir/expression-tree-gen">Learn more</a>'
-    })
-}
