@@ -28,7 +28,7 @@ function getTokenArity(token) {
 
 function getTokenLabel(token) {
     if (isCustomToken(token)) {
-        return '#' + token.name
+        return token.name
     }
     return token
 }
@@ -61,9 +61,19 @@ function Node(value, arity = 0, children) {
     this.isLeaf = () => this.children.length === 0;
 
     this.getRadius = function (context) {
-        context.font = '25px Times New Roman'
+        return 32.5
+    }
+
+    this.getFontSize = function (context) {
+        const baseSize = 25
+        const radius = this.getRadius(context)
+        const maxTextWidth = (radius - 6) * 2
+        context.font = baseSize + 'px Times New Roman'
         const textWidth = context.measureText(this.value).width
-        return Math.max(32.5, (textWidth / 2) + 10)
+        if (textWidth <= maxTextWidth) {
+            return baseSize
+        }
+        return Math.max(8, Math.floor(baseSize * (maxTextWidth / textWidth)))
     }
 
     this.drawEdge = function (context, childNode, resolve) {
@@ -92,7 +102,8 @@ function Node(value, arity = 0, children) {
         context.fill()
         context.strokeStyle = '#212121'
         context.stroke()
-        context.font = '25px Times New Roman'
+        const fontSize = this.getFontSize(context)
+        context.font = fontSize + 'px Times New Roman'
         context.textAlign = 'center'
         context.textBaseline = 'middle'
         context.fillStyle = "#212121";
@@ -178,6 +189,7 @@ function print_coords(root) {
 
 function setCoordinates(root) {
     const OFFSET = 50
+    const HORIZONTAL_SPACING = 80
     if (null == root) {
         return
     }
@@ -215,7 +227,7 @@ function setCoordinates(root) {
             currentX += width
         }
     }
-    var totalWidth = size * OFFSET
+    var totalWidth = size * HORIZONTAL_SPACING
     assignCoordinates(root, 0, canvas_mid_point - (totalWidth / 2), canvas_mid_point + (totalWidth / 2))
 }
 
