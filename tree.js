@@ -33,6 +33,22 @@ function getTokenLabel(token) {
     return token
 }
 
+function getNodeRadius() {
+    return 32.5
+}
+
+function getNodeFontSize(value, context) {
+    const baseSize = 25
+    const radius = getNodeRadius()
+    const maxTextWidth = (radius - 6) * 2
+    context.font = baseSize + 'px Times New Roman'
+    const textWidth = context.measureText(value).width
+    if (textWidth <= maxTextWidth) {
+        return baseSize
+    }
+    return Math.max(8, Math.floor(baseSize * (maxTextWidth / textWidth)))
+}
+
 function Node(value, arity = 0, children) {
     var self = this
     this.value = value;
@@ -60,20 +76,12 @@ function Node(value, arity = 0, children) {
 
     this.isLeaf = () => this.children.length === 0;
 
-    this.getRadius = function (context) {
-        return 32.5
+    this.getRadius = function () {
+        return getNodeRadius()
     }
 
     this.getFontSize = function (context) {
-        const baseSize = 25
-        const radius = this.getRadius(context)
-        const maxTextWidth = (radius - 6) * 2
-        context.font = baseSize + 'px Times New Roman'
-        const textWidth = context.measureText(this.value).width
-        if (textWidth <= maxTextWidth) {
-            return baseSize
-        }
-        return Math.max(8, Math.floor(baseSize * (maxTextWidth / textWidth)))
+        return getNodeFontSize(this.value, context)
     }
 
     this.drawEdge = function (context, childNode) {
