@@ -83,6 +83,7 @@
             currentRoot = null
             clearError()
             clearCanvas()
+            updateCanvasAccessibility('')
             return
         }
 
@@ -92,6 +93,7 @@
             currentRoot = root
             clearError()
             renderRoot(root)
+            updateCanvasAccessibility(expression)
         } catch (error) {
             showError((error && error.message) ? error.message : 'Invalid expression')
         }
@@ -114,13 +116,19 @@
             return
         }
         var exportScale = Math.max(1, scale || 1)
-        var offscreen = document.createElement('canvas')
-        offscreen.width = canvas.width * exportScale
-        offscreen.height = canvas.height * exportScale
-        var offscreenContext = offscreen.getContext('2d')
-        offscreenContext.scale(exportScale, exportScale)
-        drawTree(currentRoot, offscreenContext)
-        triggerDownload(offscreen.toDataURL('image/png'), 'expression-tree.png')
+        var colors = getThemeColors()
+        var warmPromise = (typeof warmLatexCache === 'function')
+            ? warmLatexCache(currentRoot, colors.text)
+            : Promise.resolve()
+        warmPromise.then(function () {
+            var offscreen = document.createElement('canvas')
+            offscreen.width = canvas.width * exportScale
+            offscreen.height = canvas.height * exportScale
+            var offscreenContext = offscreen.getContext('2d')
+            offscreenContext.scale(exportScale, exportScale)
+            drawTree(currentRoot, offscreenContext)
+            triggerDownload(offscreen.toDataURL('image/png'), 'expression-tree.png')
+        })
     }
 
     function escapeXml(value) {
@@ -142,12 +150,10 @@
         }
     }
 
-    function treeToSvg(root) {
+    function treeToSvg(root, cssText) {
         if (!root) {
             return ''
         }
-        var measureCanvas = document.createElement('canvas')
-        var measureContext = measureCanvas.getContext('2d')
         var radius = getNodeRadius()
         var colors = getThemeColors()
         var lines = []
@@ -168,29 +174,73 @@
                 }
                 walk(child)
             }
-            var fontSize = getNodeFontSize(node.value, measureContext)
-            nodes.push('<g><circle cx="' + node.x + '" cy="' + node.y + '" r="' + radius + '" fill="' + colors.nodeFill + '" stroke="' + colors.nodeStroke + '" /><text x="' + node.x + '" y="' + node.y + '" fill="' + colors.text + '" font-family="Times New Roman" font-size="' + fontSize + '" text-anchor="middle" dominant-baseline="middle">' + escapeXml(node.value) + '</text></g>')
+
+            var nodeSvg = '<g><circle cx="' + node.x + '" cy="' + node.y + '" r="' + radius +
+                '" fill="' + colors.nodeFill + '" stroke="' + colors.nodeStroke + '" />'
+
+            // Try to embed the KaTeX-rendered HTML as a foreignObject so the
+            // exported SVG stays vector and editable. Fall back to a plain
+            // <text> element with the raw label if KaTeX is unavailable.
+            var html = (typeof renderLatexToHtml === 'function') ? renderLatexToHtml(node.latex) : null
+            if (html) {
+                var metrics = measureLatexHtml(html, colors.text)
+                var maxDim = (radius - 6) * 2
+                var scale = Math.min(1, maxDim / metrics.width, maxDim / metrics.height)
+                var drawW = metrics.width * scale
+                var drawH = metrics.height * scale
+                var foX = node.x - drawW / 2
+                var foY = node.y - drawH / 2
+                nodeSvg += '<foreignObject x="' + foX + '" y="' + foY +
+                    '" width="' + drawW + '" height="' + drawH + '">' +
+                    '<div xmlns="http://www.w3.org/1999/xhtml" style="color:' + colors.text +
+                    ';width:' + drawW + 'px;height:' + drawH + 'px;' +
+                    'display:flex;align-items:center;justify-content:center;line-height:1.2;">' +
+                    '<span style="display:inline-block;transform-origin:center;' +
+                    'transform:scale(' + scale + ');white-space:nowrap;font-size:' +
+                    '25px;">' + html + '</span></div></foreignObject>'
+            } else {
+                var fontSize = getNodeFontSize(node.rawLabel, measureContextForSvg())
+                nodeSvg += '<text x="' + node.x + '" y="' + node.y + '" fill="' + colors.text +
+                    '" font-family="Times New Roman" font-size="' + fontSize +
+                    '" text-anchor="middle" dominant-baseline="middle">' +
+                    escapeXml(node.rawLabel) + '</text>'
+            }
+            nodeSvg += '</g>'
+            nodes.push(nodeSvg)
         }
 
         walk(root)
+        var styleBlock = cssText ? '<defs><style type="text/css"><![CDATA[' + cssText + ']]></style></defs>' : ''
         return '<?xml version="1.0" encoding="UTF-8"?>' +
-            '<svg xmlns="http://www.w3.org/2000/svg" width="' + canvas.width + '" height="' + canvas.height + '" viewBox="0 0 ' + canvas.width + ' ' + canvas.height + '">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="' + canvas.width + '" height="' + canvas.height + '" viewBox="0 0 ' + canvas.width + ' ' + canvas.height + '">' +
+            styleBlock +
             '<g stroke-width="2" fill="none">' + lines.join('') + '</g>' +
             nodes.join('') +
             '</svg>'
+    }
+
+    var svgMeasureCanvas = null
+    function measureContextForSvg() {
+        if (!svgMeasureCanvas) {
+            svgMeasureCanvas = document.createElement('canvas')
+        }
+        return svgMeasureCanvas.getContext('2d')
     }
 
     function exportSvg() {
         if (!currentRoot) {
             return
         }
-        var svgString = treeToSvg(currentRoot)
-        var blob = new Blob([svgString], { type: 'image/svg+xml' })
-        var url = URL.createObjectURL(blob)
-        triggerDownload(url, 'expression-tree.svg')
-        setTimeout(function () {
-            URL.revokeObjectURL(url)
-        }, 1000)
+        var cssPromise = (typeof getKatexCss === 'function') ? getKatexCss() : Promise.resolve('')
+        cssPromise.then(function (cssText) {
+            var svgString = treeToSvg(currentRoot, cssText)
+            var blob = new Blob([svgString], { type: 'image/svg+xml' })
+            var url = URL.createObjectURL(blob)
+            triggerDownload(url, 'expression-tree.svg')
+            setTimeout(function () {
+                URL.revokeObjectURL(url)
+            }, 1000)
+        })
     }
 
     function getSelectedExportFormat() {
@@ -220,10 +270,32 @@
         if (shouldPersist) {
             localStorage.setItem(THEME_STORAGE_KEY, theme)
         }
+        // Invalidate the rasterized LaTeX cache so labels re-render in the new --fg color.
+        if (typeof invalidateLatexCache === 'function') {
+            invalidateLatexCache()
+        }
         if (currentRoot) {
             renderRoot(currentRoot)
         } else {
             clearCanvas()
+        }
+    }
+
+    if (typeof setLatexRerenderHandler === 'function') {
+        setLatexRerenderHandler(function () {
+            if (currentRoot) {
+                renderRoot(currentRoot)
+            }
+        })
+    }
+
+    function updateCanvasAccessibility(expression) {
+        if (expression) {
+            canvas.setAttribute('role', 'img')
+            canvas.setAttribute('aria-label', 'Expression tree for ' + expression)
+        } else {
+            canvas.removeAttribute('role')
+            canvas.removeAttribute('aria-label')
         }
     }
 
@@ -245,6 +317,7 @@
         currentRoot = null
         clearError()
         clearCanvas()
+        updateCanvasAccessibility('')
         input.focus()
     })
 
