@@ -52,7 +52,7 @@ function tokenize(expression) {
   return tokens
 }
 
-function hasUnaryPlusOrMinus(node) {
+function containsUnaryPlusOrMinus(node) {
   if (!node || typeof node !== 'object') {
     return false
   }
@@ -61,12 +61,12 @@ function hasUnaryPlusOrMinus(node) {
   }
   if (node.args && node.args.length) {
     for (var i = 0; i < node.args.length; i++) {
-      if (hasUnaryPlusOrMinus(node.args[i])) {
+      if (containsUnaryPlusOrMinus(node.args[i])) {
         return true
       }
     }
   }
-  if (node.content && hasUnaryPlusOrMinus(node.content)) {
+  if (node.content && containsUnaryPlusOrMinus(node.content)) {
     return true
   }
   return false
@@ -109,7 +109,7 @@ function isValidParsedNode(node) {
 
 function isValidExpression(expr) {
   var tokens = tokenize(expr)
-  if (null === tokens || tokens.length < 1) {
+  if (tokens === null || tokens.length === 0) {
     return false;
   }
   try {
@@ -119,7 +119,7 @@ function isValidExpression(expr) {
       } else break;
     }
     var res = math.parse(expr);
-    if (hasUnaryPlusOrMinus(res) || !isValidParsedNode(res)) {
+    if (containsUnaryPlusOrMinus(res) || !isValidParsedNode(res)) {
       return false;
     }
     return true;
@@ -137,7 +137,7 @@ function infixToPostfix(expression) {
   var op_stack = []
   var postfixList = []
   var tokens = tokenize(expression)
-  if (null === tokens) {
+  if (tokens === null) {
     return null
   }
   for (const token of tokens) {

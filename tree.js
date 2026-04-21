@@ -152,7 +152,7 @@ function setCoordinates(root) {
             subt.y = 1.75 * OFFSET + (depth * 1.5 * OFFSET)
             i++
             setCoordinates(subt.right, depth + 1)
-            if (null == subt.left && null != subt.right) {
+            if (subt.left === null && subt.right !== null) {
                 subt.right.x = subt.x
             }
         }
