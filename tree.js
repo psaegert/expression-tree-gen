@@ -1,6 +1,17 @@
-function Node(value) {
-    const radius = 32.5
+const TREE_BINARY_OPERATORS = ['*', '/', '-', '+']
+const TREE_UNARY_FUNCTIONS = ['sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'exp', 'abs']
+
+function isBinaryOperator(token) {
+    return TREE_BINARY_OPERATORS.includes(token)
+}
+
+function isUnaryFunction(token) {
+    return TREE_UNARY_FUNCTIONS.includes(token)
+}
+
+function Node(value, arity = 0) {
     this.value = value;
+    this.arity = arity;
     this.x = null;
     this.y = null;
     this.right = null;
@@ -8,7 +19,14 @@ function Node(value) {
 
     this.isLeaf = () => this.right == null && this.left == null;
 
+    this.getRadius = function (context) {
+        context.font = '25px Times New Roman'
+        const textWidth = context.measureText(this.value).width
+        return Math.max(32.5, (textWidth / 2) + 10)
+    }
+
     this.drawEdge = function (context, x, y, left_way, resolve) {
+        const radius = this.getRadius(context)
         context.strokeStyle = 'gray';
         context.beginPath()
         const x_y_ratio = Math.abs(this.y - y) / Math.abs(this.x - x)
@@ -22,6 +40,7 @@ function Node(value) {
     }
 
     this.draw = function (context) {
+        const radius = this.getRadius(context)
         context.beginPath()
         context.arc(this.x, this.y, radius, 0, Math.PI * 2, false)
         context.fillStyle = 'white'
@@ -69,33 +88,35 @@ function drawEdgeAnimated(origin_x, origin_y, destine_x, destine_y, ctx, resolve
 }
 
 function constructTree(postfix) {
-    const OPERATORS = ['*', '/', '-', '+']
     var stack = []
-    var root = null;
-    var current;
-    var shift = false;
-    for (var i = postfix.length - 1; i >= 0; i--) {
-        if (null === root) {
-            current = new Node(postfix[i]);
-            root = current;
-        } else {
-            if (shift) {
-                current.left = new Node(postfix[i])
-                current = current.left
-                shift = false
-            } else {
-                current.right = new Node(postfix[i])
-                current = current.right
+    for (var i = 0; i < postfix.length; i++) {
+        var token = postfix[i]
+        if (isBinaryOperator(token)) {
+            if (stack.length < 2) {
+                throw new Error('Invalid postfix expression')
             }
-        }
-        if (OPERATORS.includes(postfix[i])) {
-            stack.push(current);
+            var rightNode = stack.pop()
+            var leftNode = stack.pop()
+            var binaryNode = new Node(token, 2)
+            binaryNode.left = leftNode
+            binaryNode.right = rightNode
+            stack.push(binaryNode)
+        } else if (isUnaryFunction(token)) {
+            if (stack.length < 1) {
+                throw new Error('Invalid postfix expression')
+            }
+            var childNode = stack.pop()
+            var unaryNode = new Node(token, 1)
+            unaryNode.right = childNode
+            stack.push(unaryNode)
         } else {
-            current = stack.pop();
-            shift = true
+            stack.push(new Node(token, 0))
         }
     }
-    return root;
+    if (stack.length !== 1) {
+        throw new Error('Invalid postfix expression')
+    }
+    return stack[0];
 }
 
 function getSize(root) {
@@ -131,6 +152,9 @@ function setCoordinates(root) {
             subt.y = 1.75 * OFFSET + (depth * 1.5 * OFFSET)
             i++
             setCoordinates(subt.right, depth + 1)
+            if (subt.left === null && subt.right !== null) {
+                subt.right.x = subt.x
+            }
         }
     }
     setCoordinates(root, 0)

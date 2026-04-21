@@ -5,10 +5,11 @@
     const SAMPLE_EXPRESSIONS = [
         '(a + b)*c - (x - y)/z',
         '(a * b) - c + z / x',
+        'sin(a)+cos(b)',
+        'sin(a+b)*cos(c)',
         'x - y + (c / (a + b))',
         '(a / y) + b - (c * x)',
-        '(a - b) * (c + d) / z',
-        '(a * b) - (x / y)'
+        '(a - b) * (c + d) / z'
     ]
     var canvas = document.querySelector('canvas')
     var c = canvas.getContext('2d')
@@ -61,10 +62,11 @@ function displayErrorMessage() {
             <div style="font-size:1.1em;text-align: left;margin:0px 0px 0px 60px;">
                 - You may only use these brackets ( ). <br/>
                 - Use * for multiplication and / for division. <br/>
+                - Supported unary functions: sin, cos, tan, log, ln, sqrt, exp, abs. <br/>
                 - Valid operators and operands are:<br/>
                 <div style="margin-left: 10px;">
                     <i>Operators</i>: <b>[+ - * / ]</b><br/>
-                    <i>Operands</i>: Any alphabetic letter.
+                    <i>Operands</i>: Single letters a-z.
                 </div>
             </div>
         `,
