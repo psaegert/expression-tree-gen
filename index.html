@@ -27,13 +27,32 @@
                 </button>
             </div>
 
-            <button class="icon-btn save-btn" id="export-tree" aria-label="Export PNG">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-            </button>
+            <details class="export-popover" id="export-popover">
+                <summary class="icon-btn save-btn" id="export-tree" aria-label="Export options">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                </summary>
+                <div class="export-panel" role="group" aria-label="Export options">
+                    <fieldset class="export-fieldset">
+                        <legend>Format</legend>
+                        <label><input type="radio" name="export-format" value="png" checked> PNG</label>
+                        <label><input type="radio" name="export-format" value="svg"> SVG</label>
+                    </fieldset>
+                    <label class="scale-row" id="png-scale-row" for="png-scale">
+                        <span>Scale</span>
+                        <select id="png-scale">
+                            <option value="1">1x</option>
+                            <option value="2" selected>2x</option>
+                            <option value="3">3x</option>
+                            <option value="4">4x</option>
+                        </select>
+                    </label>
+                    <button type="button" class="download-btn" id="download-export">Download</button>
+                </div>
+            </details>
         </section>
 
         <div id="canvas-container">
@@ -65,7 +84,6 @@
         </footer>
     </main>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/6.6.1/math.min.js" integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb" crossorigin="anonymous"></script>
     <script src="tree.js"></script>
     <script src="infixToPostfix.js"></script>
     <script src="canvas.js"></script>

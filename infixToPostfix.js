@@ -1,22 +1,3 @@
-function isBracketed(expr) {
-  var stack = []
-  for (var i = 0; i < expr.length; i++) {
-    if ('(' === expr[i]) {
-      stack.push('(')
-    } else if (')' === expr[i]) {
-      stack.pop()
-      if (stack.length === 0) {
-        if (i !== expr.length - 1) {
-          return false
-        } else {
-          return true
-        }
-      }
-    }
-  }
-  return false;
-}
-
 const VARIABLES = 'abcdefghijklmnopqrstuvwxyz'
 const BINARY_OPERATORS = ['*', '/', '-', '+']
 const UNARY_FUNCTIONS = ['sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'exp', 'abs']
@@ -188,64 +169,9 @@ function parseAddSubtract(tokens, index, stopOnComma) {
   return { nextIndex: i }
 }
 
-function isValidCustomExpression(tokens) {
+function isValidTokens(tokens) {
   var parsed = parseAddSubtract(tokens, 0, false)
   return !!parsed && parsed.nextIndex === tokens.length
-}
-
-function containsUnaryPlusOrMinus(node) {
-  if (!node || typeof node !== 'object') {
-    return false
-  }
-  if (node.type === 'OperatorNode' && (node.fn === 'unaryPlus' || node.fn === 'unaryMinus')) {
-    return true
-  }
-  if (node.args && node.args.length) {
-    for (var i = 0; i < node.args.length; i++) {
-      if (containsUnaryPlusOrMinus(node.args[i])) {
-        return true
-      }
-    }
-  }
-  if (node.content && containsUnaryPlusOrMinus(node.content)) {
-    return true
-  }
-  return false
-}
-
-function isValidParsedNode(node) {
-  if (!node || typeof node !== 'object') {
-    return false
-  }
-  if (node.type === 'ParenthesisNode') {
-    return isValidParsedNode(node.content)
-  }
-  if (node.type === 'SymbolNode') {
-    return typeof node.name === 'string' && node.name.length === 1 && VARIABLES.indexOf(node.name) !== -1
-  }
-  if (node.type === 'OperatorNode') {
-    if (node.implicit === true) {
-      return false
-    }
-    if (['add', 'subtract', 'multiply', 'divide'].indexOf(node.fn) === -1) {
-      return false
-    }
-    if (!node.args || node.args.length !== 2) {
-      return false
-    }
-    return isValidParsedNode(node.args[0]) && isValidParsedNode(node.args[1])
-  }
-  if (node.type === 'FunctionNode') {
-    var fnName = node.fn && node.fn.name
-    if (UNARY_FUNCTIONS.indexOf(fnName) === -1) {
-      return false
-    }
-    if (!node.args || node.args.length !== 1) {
-      return false
-    }
-    return isValidParsedNode(node.args[0])
-  }
-  return false
 }
 
 function isValidExpression(expr) {
@@ -256,25 +182,7 @@ function isValidExpression(expr) {
   if (tokens === null || tokens.length === 0) {
     return false;
   }
-  var hasCustomToken = tokens.some(function (token) { return isCustomToken(token) })
-  if (hasCustomToken) {
-    return isValidCustomExpression(tokens)
-  }
-  try {
-    while ("(" === expr[0] && ")" === expr[expr.length - 1]) {
-      if (isBracketed(expr)) {
-        expr = expr.substring(1, expr.length - 1);
-      } else break;
-    }
-    var res = math.parse(expr);
-    if (containsUnaryPlusOrMinus(res) || !isValidParsedNode(res)) {
-      return false;
-    }
-    return true;
-  }
-  catch (ex) {
-    return false;
-  }
+  return isValidTokens(tokens)
 }
 
 function infixToPostfix(expression) {
