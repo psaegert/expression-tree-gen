@@ -22,12 +22,16 @@ function isLiteralToken(token) {
     (token.kind === 'text' || token.kind === 'latex') && typeof token.value === 'string'
 }
 
-function createLiteralToken(kind, value) {
-  return { type: 'literal', kind: kind, value: value }
+function createLiteralToken(kind, value, arity) {
+  var token = { type: 'literal', kind: kind, value: value }
+  if (typeof arity === 'number') {
+    token.arity = arity
+  }
+  return token
 }
 
 function isFunctionToken(token) {
-  return UNARY_FUNCTIONS.indexOf(token) !== -1 || isCustomToken(token)
+  return UNARY_FUNCTIONS.indexOf(token) !== -1 || isCustomToken(token) || isLiteralToken(token)
 }
 
 function isVariableToken(token) {
@@ -39,7 +43,8 @@ function isNumberToken(token) {
 }
 
 function isLeafToken(token) {
-  return isVariableToken(token) || isNumberToken(token) || isLiteralToken(token) ||
+  return isVariableToken(token) || isNumberToken(token) ||
+    (isLiteralToken(token) && (typeof token.arity !== 'number' || token.arity === 0)) ||
     (isCustomToken(token) && typeof token.arity === 'number' && token.arity === 0)
 }
 
@@ -141,7 +146,7 @@ function parsePrimary(tokens, index, stopOnComma) {
   if (isStopToken(token, stopOnComma)) {
     return null
   }
-  if (isVariableToken(token) || isNumberToken(token) || isLiteralToken(token)) {
+  if (isVariableToken(token) || isNumberToken(token)) {
     return { nextIndex: index + 1 }
   }
   if (token === '(') {
@@ -161,7 +166,7 @@ function parsePrimary(tokens, index, stopOnComma) {
     }
     return { nextIndex: unaryArg.nextIndex + 1 }
   }
-  if (isCustomToken(token)) {
+  if (isCustomToken(token) || isLiteralToken(token)) {
     if (tokens[index + 1] !== '(') {
       return { nextIndex: index + 1 }
     }
@@ -278,7 +283,7 @@ function infixToPostfix(expression) {
   var postfixList = []
   for (var i = 0; i < tokens.length; i++) {
     var token = tokens[i]
-    if (isVariableToken(token) || isNumberToken(token) || isLiteralToken(token)) {
+    if (isVariableToken(token) || isNumberToken(token)) {
       postfixList.push(token)
     } else if (isCustomToken(token)) {
       if (tokens[i + 1] === '(') {
@@ -286,11 +291,17 @@ function infixToPostfix(expression) {
       } else {
         postfixList.push(createCustomToken(token.name, 0))
       }
+    } else if (isLiteralToken(token)) {
+      if (tokens[i + 1] === '(') {
+        op_stack.push(token)
+      } else {
+        postfixList.push(token)
+      }
     } else if (UNARY_FUNCTIONS.indexOf(token) !== -1) {
       op_stack.push(token)
     } else if ("(" === token) {
-      if (i > 0 && isCustomToken(tokens[i - 1])) {
-        customCallStack.push({ name: tokens[i - 1].name, commaCount: 0 })
+      if (i > 0 && (isCustomToken(tokens[i - 1]) || isLiteralToken(tokens[i - 1]))) {
+        customCallStack.push({ token: tokens[i - 1], commaCount: 0 })
       }
       op_stack.push(token)
     } else if ("," === token) {
@@ -321,10 +332,16 @@ function infixToPostfix(expression) {
         var emittedFunction = op_stack.pop()
         if (isCustomToken(emittedFunction)) {
           var customFrame = customCallStack.pop()
-          if (!customFrame || customFrame.name !== emittedFunction.name) {
+          if (!customFrame || customFrame.token !== emittedFunction) {
             throw new Error("Mismatched custom function call for '#" + emittedFunction.name + "'")
           }
           postfixList.push(createCustomToken(emittedFunction.name, customFrame.commaCount + 1))
+        } else if (isLiteralToken(emittedFunction)) {
+          var literalFrame = customCallStack.pop()
+          if (!literalFrame || literalFrame.token !== emittedFunction) {
+            throw new Error("Mismatched literal function call for " + describeToken(emittedFunction))
+          }
+          postfixList.push(createLiteralToken(emittedFunction.kind, emittedFunction.value, literalFrame.commaCount + 1))
         } else {
           postfixList.push(emittedFunction)
         }
@@ -348,6 +365,9 @@ function infixToPostfix(expression) {
     }
     if (isCustomToken(tail)) {
       throw new Error("Missing closing ')' for '#" + tail.name + "'")
+    }
+    if (isLiteralToken(tail)) {
+      throw new Error("Missing closing ')' for " + describeToken(tail))
     }
     postfixList.push(op_stack.pop())
   }

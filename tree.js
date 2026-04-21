@@ -164,6 +164,9 @@ function getTokenArity(token) {
     if (isCustomToken(token)) {
         return token.arity || 0
     }
+    if (isLiteralToken(token)) {
+        return token.arity || 0
+    }
     return 0
 }
 
