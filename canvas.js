@@ -147,9 +147,15 @@
                 if (typeof offscreen.toBlob === 'function') {
                     offscreen.toBlob(function (blob) { resolve(blob) }, 'image/png')
                 } else {
-                    // Fallback: derive blob from data URL.
+                    // Fallback: derive blob from data URL. Guard against a
+                    // malformed data URL so we don't throw inside atob().
                     var dataUrl = offscreen.toDataURL('image/png')
-                    var binary = atob(dataUrl.split(',')[1])
+                    var commaIndex = dataUrl.indexOf(',')
+                    if (commaIndex === -1) {
+                        resolve(null)
+                        return
+                    }
+                    var binary = atob(dataUrl.slice(commaIndex + 1))
                     var bytes = new Uint8Array(binary.length)
                     for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i) }
                     resolve(new Blob([bytes], { type: 'image/png' }))
@@ -480,6 +486,8 @@
                 })
             } else {
                 // Fallback for environments without the async Clipboard API.
+                // document.execCommand('copy') is deprecated but remains the
+                // only option on older/insecure contexts.
                 try {
                     input.focus()
                     input.select()

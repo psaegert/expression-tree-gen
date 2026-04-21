@@ -47,7 +47,7 @@ function tokenize(expression) {
   var tokens = []
   for (var i = 0; i < expression.length; i++) {
     var current = expression[i]
-    if (current === ' ') {
+    if (/\s/.test(current)) {
       continue
     }
     if (BINARY_OPERATORS.indexOf(current) !== -1 || current === '(' || current === ')') {
