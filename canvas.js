@@ -132,6 +132,7 @@
         if (!root) {
             return null
         }
+        // All nodes share a single radius (from getNodeRadius()).
         var radius = getNodeRadius()
         var minX = Infinity
         var minY = Infinity
@@ -159,6 +160,13 @@
         return { minX: minX, minY: minY, maxX: maxX, maxY: maxY }
     }
 
+    function getPaddedBoundsSize(bounds) {
+        return {
+            width: (bounds.maxX - bounds.minX) + (2 * EXPORT_PADDING),
+            height: (bounds.maxY - bounds.minY) + (2 * EXPORT_PADDING)
+        }
+    }
+
     function buildPngBlob(scale) {
         if (!currentRoot) {
             return Promise.resolve(null)
@@ -173,11 +181,10 @@
             if (!bounds) {
                 return null
             }
-            var width = (bounds.maxX - bounds.minX) + (2 * EXPORT_PADDING)
-            var height = (bounds.maxY - bounds.minY) + (2 * EXPORT_PADDING)
+            var size = getPaddedBoundsSize(bounds)
             var offscreen = document.createElement('canvas')
-            offscreen.width = Math.ceil(width * exportScale)
-            offscreen.height = Math.ceil(height * exportScale)
+            offscreen.width = Math.ceil(size.width * exportScale)
+            offscreen.height = Math.ceil(size.height * exportScale)
             var offscreenContext = offscreen.getContext('2d')
             offscreenContext.scale(exportScale, exportScale)
             offscreenContext.translate(-bounds.minX + EXPORT_PADDING, -bounds.minY + EXPORT_PADDING)
@@ -242,8 +249,9 @@
         }
         var viewBoxX = bounds.minX - EXPORT_PADDING
         var viewBoxY = bounds.minY - EXPORT_PADDING
-        var viewBoxWidth = (bounds.maxX - bounds.minX) + (2 * EXPORT_PADDING)
-        var viewBoxHeight = (bounds.maxY - bounds.minY) + (2 * EXPORT_PADDING)
+        var size = getPaddedBoundsSize(bounds)
+        var viewBoxWidth = size.width
+        var viewBoxHeight = size.height
         var colors = getThemeColors()
         var lines = []
         var nodes = []
