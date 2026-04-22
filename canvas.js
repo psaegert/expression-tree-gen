@@ -12,6 +12,7 @@
     ]
     const THEME_STORAGE_KEY = 'etg-theme'
     const DEBOUNCE_MS = 150
+    const EXPORT_PADDING = 16
 
     var canvas = document.querySelector('canvas')
     var context = canvas.getContext('2d')
@@ -127,6 +128,45 @@
         link.click()
     }
 
+    function computeTreeBounds(root) {
+        if (!root) {
+            return null
+        }
+        // All nodes share a single radius (from getNodeRadius()).
+        var radius = getNodeRadius()
+        var minX = Infinity
+        var minY = Infinity
+        var maxX = -Infinity
+        var maxY = -Infinity
+
+        function walk(node) {
+            if (!node) {
+                return
+            }
+            minX = Math.min(minX, node.x - radius)
+            minY = Math.min(minY, node.y - radius)
+            maxX = Math.max(maxX, node.x + radius)
+            maxY = Math.max(maxY, node.y + radius)
+            var children = node.children || []
+            for (var i = 0; i < children.length; i++) {
+                walk(children[i])
+            }
+        }
+
+        walk(root)
+        if (!isFinite(minX)) {
+            return null
+        }
+        return { minX: minX, minY: minY, maxX: maxX, maxY: maxY }
+    }
+
+    function getPaddedBoundsSize(bounds) {
+        return {
+            width: (bounds.maxX - bounds.minX) + (2 * EXPORT_PADDING),
+            height: (bounds.maxY - bounds.minY) + (2 * EXPORT_PADDING)
+        }
+    }
+
     function buildPngBlob(scale) {
         if (!currentRoot) {
             return Promise.resolve(null)
@@ -137,11 +177,17 @@
             ? warmLatexCache(currentRoot, colors.text)
             : Promise.resolve()
         return warmPromise.then(function () {
+            var bounds = computeTreeBounds(currentRoot)
+            if (!bounds) {
+                return null
+            }
+            var size = getPaddedBoundsSize(bounds)
             var offscreen = document.createElement('canvas')
-            offscreen.width = cssWidth * exportScale
-            offscreen.height = cssHeight * exportScale
+            offscreen.width = Math.ceil(size.width * exportScale)
+            offscreen.height = Math.ceil(size.height * exportScale)
             var offscreenContext = offscreen.getContext('2d')
             offscreenContext.scale(exportScale, exportScale)
+            offscreenContext.translate(-bounds.minX + EXPORT_PADDING, -bounds.minY + EXPORT_PADDING)
             drawTree(currentRoot, offscreenContext)
             return new Promise(function (resolve) {
                 if (typeof offscreen.toBlob === 'function') {
@@ -197,6 +243,15 @@
             return ''
         }
         var radius = getNodeRadius()
+        var bounds = computeTreeBounds(root)
+        if (!bounds) {
+            return ''
+        }
+        var viewBoxX = bounds.minX - EXPORT_PADDING
+        var viewBoxY = bounds.minY - EXPORT_PADDING
+        var size = getPaddedBoundsSize(bounds)
+        var viewBoxWidth = size.width
+        var viewBoxHeight = size.height
         var colors = getThemeColors()
         var lines = []
         var nodes = []
@@ -254,7 +309,7 @@
         walk(root)
         var styleBlock = cssText ? '<defs><style type="text/css"><![CDATA[' + cssText + ']]></style></defs>' : ''
         return '<?xml version="1.0" encoding="UTF-8"?>' +
-            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="' + cssWidth + '" height="' + cssHeight + '" viewBox="0 0 ' + cssWidth + ' ' + cssHeight + '">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="' + viewBoxWidth + '" height="' + viewBoxHeight + '" viewBox="' + viewBoxX + ' ' + viewBoxY + ' ' + viewBoxWidth + ' ' + viewBoxHeight + '">' +
             styleBlock +
             '<g stroke-width="2" fill="none">' + lines.join('') + '</g>' +
             nodes.join('') +
