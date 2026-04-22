@@ -146,8 +146,9 @@
             minY = Math.min(minY, node.y - radius)
             maxX = Math.max(maxX, node.x + radius)
             maxY = Math.max(maxY, node.y + radius)
-            for (var i = 0; i < node.children.length; i++) {
-                walk(node.children[i])
+            var children = node.children || []
+            for (var i = 0; i < children.length; i++) {
+                walk(children[i])
             }
         }
 
