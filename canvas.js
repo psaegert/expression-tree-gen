@@ -12,6 +12,7 @@
     ]
     const THEME_STORAGE_KEY = 'etg-theme'
     const DEBOUNCE_MS = 150
+    const EXPORT_PADDING = 16
 
     var canvas = document.querySelector('canvas')
     var context = canvas.getContext('2d')
@@ -127,6 +128,36 @@
         link.click()
     }
 
+    function computeTreeBounds(root) {
+        if (!root) {
+            return null
+        }
+        var radius = getNodeRadius()
+        var minX = Infinity
+        var minY = Infinity
+        var maxX = -Infinity
+        var maxY = -Infinity
+
+        function walk(node) {
+            if (!node) {
+                return
+            }
+            minX = Math.min(minX, node.x - radius)
+            minY = Math.min(minY, node.y - radius)
+            maxX = Math.max(maxX, node.x + radius)
+            maxY = Math.max(maxY, node.y + radius)
+            for (var i = 0; i < node.children.length; i++) {
+                walk(node.children[i])
+            }
+        }
+
+        walk(root)
+        if (!isFinite(minX)) {
+            return null
+        }
+        return { minX: minX, minY: minY, maxX: maxX, maxY: maxY }
+    }
+
     function buildPngBlob(scale) {
         if (!currentRoot) {
             return Promise.resolve(null)
@@ -137,11 +168,18 @@
             ? warmLatexCache(currentRoot, colors.text)
             : Promise.resolve()
         return warmPromise.then(function () {
+            var bounds = computeTreeBounds(currentRoot)
+            if (!bounds) {
+                return null
+            }
+            var width = (bounds.maxX - bounds.minX) + (2 * EXPORT_PADDING)
+            var height = (bounds.maxY - bounds.minY) + (2 * EXPORT_PADDING)
             var offscreen = document.createElement('canvas')
-            offscreen.width = cssWidth * exportScale
-            offscreen.height = cssHeight * exportScale
+            offscreen.width = Math.ceil(width * exportScale)
+            offscreen.height = Math.ceil(height * exportScale)
             var offscreenContext = offscreen.getContext('2d')
             offscreenContext.scale(exportScale, exportScale)
+            offscreenContext.translate(-bounds.minX + EXPORT_PADDING, -bounds.minY + EXPORT_PADDING)
             drawTree(currentRoot, offscreenContext)
             return new Promise(function (resolve) {
                 if (typeof offscreen.toBlob === 'function') {
@@ -197,6 +235,14 @@
             return ''
         }
         var radius = getNodeRadius()
+        var bounds = computeTreeBounds(root)
+        if (!bounds) {
+            return ''
+        }
+        var viewBoxX = bounds.minX - EXPORT_PADDING
+        var viewBoxY = bounds.minY - EXPORT_PADDING
+        var viewBoxWidth = (bounds.maxX - bounds.minX) + (2 * EXPORT_PADDING)
+        var viewBoxHeight = (bounds.maxY - bounds.minY) + (2 * EXPORT_PADDING)
         var colors = getThemeColors()
         var lines = []
         var nodes = []
@@ -254,7 +300,7 @@
         walk(root)
         var styleBlock = cssText ? '<defs><style type="text/css"><![CDATA[' + cssText + ']]></style></defs>' : ''
         return '<?xml version="1.0" encoding="UTF-8"?>' +
-            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="' + cssWidth + '" height="' + cssHeight + '" viewBox="0 0 ' + cssWidth + ' ' + cssHeight + '">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="' + viewBoxWidth + '" height="' + viewBoxHeight + '" viewBox="' + viewBoxX + ' ' + viewBoxY + ' ' + viewBoxWidth + ' ' + viewBoxHeight + '">' +
             styleBlock +
             '<g stroke-width="2" fill="none">' + lines.join('') + '</g>' +
             nodes.join('') +
